@@ -42,6 +42,9 @@ export default function LoginContent() {
       if (signInError) throw signInError;
 
       if (data.user) {
+        // Wait a moment for session to be established
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Get user role from metadata
         const { data: userData } = await supabase
           .from("users")
@@ -49,9 +52,10 @@ export default function LoginContent() {
           .eq("id", data.user.id)
           .single();
 
-        // Redirect based on role
+        // Redirect based on role using window.location for hard redirect
         const role = userData?.role || data.user.user_metadata?.role || "user";
-        router.push(`/${role === "user" ? "user" : role}/dashboard`);
+        const dashboardPath = `/${role === "user" ? "user" : role}/dashboard`;
+        window.location.href = dashboardPath;
       }
     } catch (err: any) {
       setError(err.message || "Invalid email or password");
