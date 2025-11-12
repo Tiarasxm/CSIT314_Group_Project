@@ -239,30 +239,46 @@ export default function SubmitRequestPage() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-black">
+                    <label 
+                      htmlFor="date-input"
+                      className="mb-2 block text-sm font-medium text-black cursor-pointer"
+                    >
                       Date <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="date-input"
                       type="date"
                       name="date"
                       value={formData.date}
                       onChange={handleInputChange}
+                      onClick={(e) => {
+                        // Ensure the picker opens on click
+                        (e.target as HTMLInputElement).showPicker?.();
+                      }}
                       min={new Date().toISOString().split("T")[0]}
-                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black cursor-pointer focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-black">
+                    <label 
+                      htmlFor="time-input"
+                      className="mb-2 block text-sm font-medium text-black cursor-pointer"
+                    >
                       Time <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="time-input"
                       type="time"
                       name="time"
                       value={formData.time}
                       onChange={handleInputChange}
-                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      onClick={(e) => {
+                        // Ensure the picker opens on click
+                        (e.target as HTMLInputElement).showPicker?.();
+                      }}
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black cursor-pointer focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                       required
                     />
                   </div>

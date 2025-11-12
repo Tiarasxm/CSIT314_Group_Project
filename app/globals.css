@@ -17,3 +17,16 @@ select {
 option {
   color: black !important;
 }
+
+/* Ensure date/time pickers open downward */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  position: relative;
+}
+
+/* Force date/time picker to open downward by ensuring enough space */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
