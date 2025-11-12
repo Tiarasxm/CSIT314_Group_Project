@@ -58,7 +58,7 @@ export default function EmailConfirmationModal({
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 text-zinc-400 transition-colors hover:text-zinc-600"
+          className="absolute right-4 top-4 text-black transition-colors hover:text-black"
           aria-label="Close"
         >
           <svg
@@ -113,11 +113,11 @@ export default function EmailConfirmationModal({
           <h2 className="mb-3 text-2xl font-bold text-zinc-900">
             Check Your Email
           </h2>
-          <p className="mb-4 text-zinc-600">
+          <p className="mb-4 text-black">
             We've sent a confirmation link to
           </p>
           <p className="mb-6 font-semibold text-blue-600">{email}</p>
-          <p className="mb-6 text-sm text-zinc-500">
+          <p className="mb-6 text-sm text-black">
             Please click the link in the email to confirm your account. The
             link will expire in 24 hours.
           </p>
@@ -133,7 +133,7 @@ export default function EmailConfirmationModal({
             <button
               onClick={handleResend}
               disabled={resending || resendSuccess}
-              className="text-sm text-zinc-500 underline transition-colors hover:text-zinc-700 disabled:opacity-50"
+              className="text-sm text-black underline transition-colors hover:text-black disabled:opacity-50"
             >
               {resending
                 ? "Sending..."
