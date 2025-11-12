@@ -8,10 +8,12 @@ import { useUserData } from "@/lib/hooks/use-user-data";
 export default function ProfilePage() {
   const router = useRouter();
   const supabase = createClient();
-  const { user, loading: userLoading } = useUserData();
+  const { user, loading: userLoading, refetch: refetchUser } = useUserData();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -47,6 +49,20 @@ export default function ProfilePage() {
 
     setFormData(data);
     setInitialData(data);
+    
+    // Set profile image URL - check both profile_image_url and handle null/empty strings
+    const imageUrl = user.profile_image_url && user.profile_image_url.trim() !== "" 
+      ? user.profile_image_url 
+      : null;
+    setProfileImageUrl(imageUrl);
+    
+    // Debug logging
+    if (imageUrl) {
+      console.log("Profile image URL loaded:", imageUrl);
+    } else {
+      console.log("No profile image URL found in user data");
+    }
+    
     setLoading(false);
   }, [user, userLoading]);
 
@@ -72,6 +88,103 @@ export default function ProfilePage() {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size must be less than 5MB");
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+
+      if (!authUser) {
+        router.push("/login");
+        return;
+      }
+
+      // Delete old image if exists
+      if (profileImageUrl && profileImageUrl.includes("/profile-images/")) {
+        try {
+          // Extract the file path from the URL
+          const urlParts = profileImageUrl.split("/profile-images/");
+          if (urlParts.length > 1) {
+            const filePath = urlParts[1].split("?")[0]; // Remove query params
+            await supabase.storage.from("profile-images").remove([filePath]);
+          }
+        } catch (error) {
+          // Ignore deletion errors, continue with upload
+          console.warn("Could not delete old image:", error);
+        }
+      }
+
+      // Upload new image
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${authUser.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Error uploading image:", uploadError);
+        alert("Failed to upload image. Please try again.");
+        setUploadingImage(false);
+        return;
+      }
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("profile-images").getPublicUrl(fileName);
+
+      console.log("Uploaded file path:", fileName);
+      console.log("Public URL generated:", publicUrl);
+
+      // Update user record with new image URL
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ profile_image_url: publicUrl })
+        .eq("id", authUser.id);
+
+      if (updateError) {
+        console.error("Error updating profile image:", updateError);
+        alert("Failed to save image. Please try again.");
+        setUploadingImage(false);
+        return;
+      }
+
+      console.log("Profile image URL saved to database:", publicUrl);
+      setProfileImageUrl(publicUrl);
+      
+      // Refetch user data to update cache
+      await refetchUser();
+
+      alert("Profile image updated successfully!");
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred. Please try again.");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,6 +233,7 @@ export default function ProfilePage() {
           language: formData.language || null,
           address: formData.address || null,
           medical_condition: formData.medical_condition || null,
+          profile_image_url: profileImageUrl || null,
         })
         .eq("id", authUser.id);
 
@@ -174,25 +288,54 @@ export default function ProfilePage() {
             {/* Profile Picture with Edit Icon */}
             <div className="mb-8 flex justify-center">
               <div className="relative">
-                <div className="h-32 w-32 rounded-full bg-zinc-200"></div>
-                <button
-                  type="button"
-                  className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-yellow-400 shadow-md transition-colors hover:bg-yellow-500"
+                {profileImageUrl ? (
+                  <img
+                    src={profileImageUrl}
+                    alt="Profile"
+                    className="h-32 w-32 rounded-full object-cover border-2 border-zinc-200"
+                    onError={(e) => {
+                      console.error("Failed to load profile image:", profileImageUrl);
+                      console.error("Image error:", e);
+                      // Fallback to placeholder on error
+                      setProfileImageUrl(null);
+                    }}
+                    onLoad={() => {
+                      console.log("Profile image loaded successfully:", profileImageUrl);
+                    }}
+                  />
+                ) : (
+                  <div className="h-32 w-32 rounded-full bg-zinc-200 flex items-center justify-center text-black text-4xl font-semibold">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
+                <label
+                  className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-yellow-400 shadow-md transition-colors hover:bg-yellow-500"
                 >
-                  <svg
-                    className="h-4 w-4 text-black"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={uploadingImage}
+                  />
+                  {uploadingImage ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent"></div>
+                  ) : (
+                    <svg
+                      className="h-4 w-4 text-black"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  )}
+                </label>
               </div>
             </div>
 
