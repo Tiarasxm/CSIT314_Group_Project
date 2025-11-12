@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "create-admins": "node scripts/create-admin-accounts.mjs",
+    "check-admins": "node scripts/check-admin-accounts.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
