@@ -6,14 +6,28 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRequestsCache } from "@/lib/hooks/use-requests-cache";
 
+const CATEGORIES = [
+  "Household Support",
+  "Transportation",
+  "Medical Assistance",
+  "Food & Groceries",
+  "Technology Support",
+  "Other",
+];
+
 export default function RequestsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
   const [requests, setRequests] = useState<any[]>([]);
+  const [filteredRequests, setFilteredRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<"latest" | "earliest">("latest");
   const { getCachedRequests, setCachedRequests } = useRequestsCache();
 
   useEffect(() => {
@@ -22,6 +36,37 @@ export default function RequestsPage() {
       setFilter(statusParam);
     }
   }, [searchParams]);
+
+  const applyFiltersAndSearch = useCallback((requestsData: any[]) => {
+    let filtered = [...requestsData];
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (req) =>
+          req.description?.toLowerCase().includes(query) ||
+          req.category?.toLowerCase().includes(query) ||
+          req.additional_notes?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply category filter
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter((req) =>
+        selectedCategories.includes(req.category || "Other")
+      );
+    }
+
+    // Apply sort
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sortBy === "latest" ? dateB - dateA : dateA - dateB;
+    });
+
+    setFilteredRequests(filtered);
+  }, [searchQuery, selectedCategories, sortBy]);
 
   const fetchRequests = useCallback(
     async (filterType: string) => {
@@ -87,6 +132,26 @@ export default function RequestsPage() {
     fetchRequests(filter);
   }, [filter, fetchRequests]);
 
+  useEffect(() => {
+    applyFiltersAndSearch(requests);
+  }, [searchQuery, selectedCategories, sortBy, requests, applyFiltersAndSearch]);
+
+  const handleCategoryToggle = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setSelectedCategories([]);
+    setSortBy("latest");
+  };
+
+  const hasActiveFilters = searchQuery.trim() || selectedCategories.length > 0;
+
   const handleFilterChange = (newFilter: string) => {
     // Prevent changing tabs while loading
     if (isTransitioning || loading) {
@@ -113,6 +178,58 @@ export default function RequestsPage() {
             >
               Submit New Request
             </Link>
+          </div>
+
+          {/* Search Bar and Filter */}
+          <div className="mb-6 flex gap-3">
+            <div className="relative flex-1">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <svg
+                  className="h-5 w-5 text-zinc-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-md border border-zinc-300 bg-white py-2 pl-10 pr-4 text-black placeholder-zinc-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              />
+            </div>
+            <button
+              onClick={() => setShowFilterModal(true)}
+              className="flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-zinc-50"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                />
+              </svg>
+              Filter
+              {hasActiveFilters && (
+                <span className="ml-1 rounded-full bg-orange-600 px-2 py-0.5 text-xs text-white">
+                  {selectedCategories.length + (searchQuery.trim() ? 1 : 0)}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Filter Tabs */}
@@ -163,6 +280,113 @@ export default function RequestsPage() {
             </button>
           </div>
 
+          {/* Filter Modal */}
+          {showFilterModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
+              onClick={() => setShowFilterModal(false)}
+            >
+              <div
+                className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-zinc-900">
+                    Filter Card
+                  </h2>
+                  <button
+                    onClick={() => setShowFilterModal(false)}
+                    className="text-zinc-400 hover:text-zinc-600"
+                  >
+                    <svg
+                      className="h-6 w-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Filter by Category */}
+                <div className="mb-6">
+                  <div className="mb-3 text-sm font-medium text-black">
+                    Filter by
+                  </div>
+                  <div className="space-y-2">
+                    {CATEGORIES.map((category) => (
+                      <label
+                        key={category}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.includes(category)}
+                          onChange={() => handleCategoryToggle(category)}
+                          className="h-4 w-4 rounded border-zinc-300 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span className="text-sm text-black">{category}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sort by */}
+                <div className="mb-6">
+                  <div className="mb-3 text-sm font-medium text-black">
+                    Sort by
+                  </div>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="sort"
+                        value="latest"
+                        checked={sortBy === "latest"}
+                        onChange={() => setSortBy("latest")}
+                        className="h-4 w-4 border-zinc-300 text-orange-600 focus:ring-orange-500"
+                      />
+                      <span className="text-sm text-black">Latest</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="sort"
+                        value="earliest"
+                        checked={sortBy === "earliest"}
+                        onChange={() => setSortBy("earliest")}
+                        className="h-4 w-4 border-zinc-300 text-orange-600 focus:ring-orange-500"
+                      />
+                      <span className="text-sm text-black">Earliest</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={handleClearFilters}
+                    className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-zinc-50"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={() => setShowFilterModal(false)}
+                    className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Requests List */}
           {loading && !getCachedRequests(filter) ? (
             <div className="flex items-center justify-center py-12">
@@ -171,9 +395,9 @@ export default function RequestsPage() {
                 <p className="text-sm text-black">Loading requests...</p>
               </div>
             </div>
-          ) : requests.length > 0 ? (
+          ) : filteredRequests.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {requests.map((request) => (
+              {filteredRequests.map((request) => (
                 <Link
                   key={request.id}
                   href={`/user/requests/${request.id}`}
@@ -287,13 +511,27 @@ export default function RequestsPage() {
             </div>
           ) : (
             <div className="rounded-lg bg-white p-8 text-center shadow">
-              <p className="text-black">No requests found</p>
-              <Link
-                href="/user/requests/new"
-                className="mt-4 inline-block text-orange-600 hover:underline"
-              >
-                Submit your first request
-              </Link>
+              <p className="text-black">
+                {requests.length === 0
+                  ? "No requests found"
+                  : "No requests match your search or filters"}
+              </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={handleClearFilters}
+                  className="mt-2 text-sm text-orange-600 hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
+              {requests.length === 0 && (
+                <Link
+                  href="/user/requests/new"
+                  className="mt-4 inline-block text-orange-600 hover:underline"
+                >
+                  Submit your first request
+                </Link>
+              )}
             </div>
           )}
         </div>

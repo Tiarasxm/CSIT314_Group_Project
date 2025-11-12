@@ -11,6 +11,15 @@ export default function RequestDetailPage() {
   const supabase = createClient();
   const [request, setRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    description: "",
+    additional_notes: "",
+    attachments: [] as string[],
+  });
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchRequest = async () => {
@@ -37,6 +46,11 @@ export default function RequestDetailPage() {
       }
 
       setRequest(data);
+      setFormData({
+        description: data.description || "",
+        additional_notes: data.additional_notes || "",
+        attachments: data.attachments || [],
+      });
       setLoading(false);
     };
 
@@ -44,6 +58,152 @@ export default function RequestDetailPage() {
       fetchRequest();
     }
   }, [supabase, router, params.id]);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setNewFiles(Array.from(e.target.files));
+    }
+  };
+
+  const handleRemoveAttachment = (url: string) => {
+    setFilesToRemove((prev) => [...prev, url]);
+    setFormData((prev) => ({
+      ...prev,
+      attachments: prev.attachments.filter((att) => att !== url),
+    }));
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset form data to original request data
+    if (request) {
+      setFormData({
+        description: request.description || "",
+        additional_notes: request.additional_notes || "",
+        attachments: request.attachments || [],
+      });
+    }
+    setNewFiles([]);
+    setFilesToRemove([]);
+  };
+
+  const handleSave = async () => {
+    if (!request || request.status !== "pending") return;
+
+    setSaving(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      // Upload new files
+      let newFileUrls: string[] = [];
+      if (newFiles.length > 0) {
+        for (const file of newFiles) {
+          try {
+            const fileExt = file.name.split(".").pop();
+            const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from("request-files")
+              .upload(fileName, file);
+
+            if (!uploadError && uploadData) {
+              const { data: urlData } = supabase.storage
+                .from("request-files")
+                .getPublicUrl(fileName);
+              if (urlData?.publicUrl) {
+                newFileUrls.push(urlData.publicUrl);
+              }
+            } else {
+              console.warn("File upload failed:", uploadError);
+            }
+          } catch (error) {
+            console.warn("Error uploading file:", error);
+          }
+        }
+      }
+
+      // Remove old files from storage
+      if (filesToRemove.length > 0) {
+        for (const url of filesToRemove) {
+          try {
+            if (url.includes("/request-files/")) {
+              const urlParts = url.split("/request-files/");
+              if (urlParts.length > 1) {
+                const filePath = urlParts[1].split("?")[0];
+                await supabase.storage.from("request-files").remove([filePath]);
+              }
+            }
+          } catch (error) {
+            console.warn("Error removing file:", error);
+          }
+        }
+      }
+
+      // Combine existing attachments (minus removed ones) with new ones
+      const updatedAttachments = [
+        ...formData.attachments.filter((url) => !filesToRemove.includes(url)),
+        ...newFileUrls,
+      ];
+
+      // Update request
+      const { error: updateError } = await supabase
+        .from("requests")
+        .update({
+          description: formData.description,
+          additional_notes: formData.additional_notes || null,
+          attachments: updatedAttachments.length > 0 ? updatedAttachments : null,
+        })
+        .eq("id", request.id)
+        .eq("user_id", user.id);
+
+      if (updateError) {
+        console.error("Error updating request:", updateError);
+        alert("Failed to update request. Please try again.");
+        setSaving(false);
+        return;
+      }
+
+      // Refresh request data
+      const { data: updatedRequest } = await supabase
+        .from("requests")
+        .select("*")
+        .eq("id", request.id)
+        .single();
+
+      if (updatedRequest) {
+        setRequest(updatedRequest);
+        setFormData({
+          description: updatedRequest.description || "",
+          additional_notes: updatedRequest.additional_notes || "",
+          attachments: updatedRequest.attachments || [],
+        });
+      }
+
+      setIsEditing(false);
+      setNewFiles([]);
+      setFilesToRemove([]);
+      alert("Request updated successfully!");
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -124,13 +284,36 @@ export default function RequestDetailPage() {
                   Request ID: #{request.id.slice(0, 8)}
                 </p>
               </div>
-              <span
-                className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(
-                  request.status
-                )}`}
-              >
-                {getStatusLabel(request.status)}
-              </span>
+              <div className="flex items-center gap-3">
+                {request.status === "pending" && !isEditing && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-2 rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                    Edit Request
+                  </button>
+                )}
+                <span
+                  className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(
+                    request.status
+                  )}`}
+                >
+                  {getStatusLabel(request.status)}
+                </span>
+              </div>
             </div>
 
             {/* CSR Rep and Volunteer Info */}
@@ -182,38 +365,251 @@ export default function RequestDetailPage() {
               <div className="mb-2 text-sm font-medium text-black">
                 Your Note
               </div>
-              <p className="text-black">{request.description}</p>
+              {isEditing && request.status === "pending" ? (
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows={5}
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  required
+                />
+              ) : (
+                <p className="text-black">{request.description}</p>
+              )}
             </div>
 
             {/* Additional Notes */}
-            {request.additional_notes && (
-              <div className="mb-6">
-                <div className="mb-2 text-sm font-medium text-black">
-                  Additional Notes
-                </div>
-                <p className="text-black">{request.additional_notes}</p>
+            <div className="mb-6">
+              <div className="mb-2 text-sm font-medium text-black">
+                Additional Notes
               </div>
-            )}
+              {isEditing && request.status === "pending" ? (
+                <textarea
+                  name="additional_notes"
+                  value={formData.additional_notes}
+                  onChange={handleInputChange}
+                  rows={5}
+                  placeholder="Any additional information you'd like to provide..."
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+              ) : request.additional_notes ? (
+                <p className="text-black">{request.additional_notes}</p>
+              ) : (
+                <p className="text-zinc-400 italic">No additional notes</p>
+              )}
+            </div>
 
             {/* Attachments */}
-            {request.attachments && request.attachments.length > 0 && (
-              <div className="mb-6">
-                <div className="mb-2 text-sm font-medium text-black">
+            <div className="mb-6">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-sm font-medium text-black">
                   Attachments
                 </div>
-                <div className="space-y-2">
-                  {request.attachments.map((url: string, index: number) => (
-                    <a
-                      key={index}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-sm text-orange-600 hover:underline"
-                    >
-                      Attachment {index + 1}
-                    </a>
+                {isEditing && request.status === "pending" && (
+                  <label className="cursor-pointer text-sm text-orange-600 hover:underline">
+                    <input
+                      type="file"
+                      multiple
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    + Add Files
+                  </label>
+                )}
+              </div>
+              {(formData.attachments.length > 0 || newFiles.length > 0) && (
+                <div className="space-y-4">
+                  {/* Existing attachments */}
+                  {formData.attachments.map((url: string, index: number) => {
+                    // Check if the file is an image
+                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(url) || 
+                                    url.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)/i);
+                    
+                    return (
+                      <div key={index} className="space-y-2">
+                        {isImage ? (
+                          <div className="space-y-2">
+                            <div className="relative">
+                              <img
+                                src={url}
+                                alt={`Attachment ${index + 1}`}
+                                className="max-h-96 w-full rounded-lg border border-zinc-200 object-contain"
+                                onError={(e) => {
+                                  // Fallback to link if image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const link = target.nextElementSibling as HTMLElement;
+                                  if (link) link.style.display = 'block';
+                                }}
+                              />
+                              {isEditing && request.status === "pending" && (
+                                <button
+                                  onClick={() => handleRemoveAttachment(url)}
+                                  className="absolute top-2 right-2 rounded-full bg-red-500 p-1.5 text-white transition-colors hover:bg-red-600"
+                                  title="Remove attachment"
+                                >
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-sm text-orange-600 hover:underline"
+                            >
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                                />
+                              </svg>
+                              Open image in new tab
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex flex-1 items-center gap-2 rounded-md bg-zinc-100 px-4 py-3 text-sm text-orange-600 transition-colors hover:bg-zinc-200 hover:underline"
+                            >
+                              <svg
+                                className="h-5 w-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                                />
+                              </svg>
+                              <span>Attachment {index + 1}</span>
+                              <svg
+                                className="ml-auto h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                />
+                              </svg>
+                            </a>
+                            {isEditing && request.status === "pending" && (
+                              <button
+                                onClick={() => handleRemoveAttachment(url)}
+                                className="rounded-md bg-red-500 p-2 text-white transition-colors hover:bg-red-600"
+                                title="Remove attachment"
+                              >
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* New files to be uploaded */}
+                  {newFiles.map((file, index) => (
+                    <div key={`new-${index}`} className="flex items-center gap-2 rounded-md bg-zinc-50 px-4 py-2 text-sm text-black">
+                      <svg
+                        className="h-5 w-5 text-zinc-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      <span className="flex-1">{file.name}</span>
+                      <button
+                        onClick={() => setNewFiles(newFiles.filter((_, i) => i !== index))}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   ))}
                 </div>
+              )}
+              {formData.attachments.length === 0 && newFiles.length === 0 && (
+                <p className="text-sm text-zinc-400 italic">No attachments</p>
+              )}
+            </div>
+
+            {/* Edit Actions */}
+            {isEditing && request.status === "pending" && (
+              <div className="mb-6 flex justify-end gap-3 border-t border-zinc-200 pt-4">
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                  className="rounded-md border border-zinc-300 px-6 py-2 text-sm font-medium text-black transition-colors hover:bg-zinc-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !formData.description.trim()}
+                  className="rounded-md bg-orange-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
               </div>
             )}
 
