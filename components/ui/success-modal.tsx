@@ -6,12 +6,14 @@ interface SuccessModalProps {
   title: string;
   message: string;
   onClose: () => void;
+  buttonText?: string;
 }
 
 export default function SuccessModal({
   title,
   message,
   onClose,
+  buttonText = "Back to Dashboard",
 }: SuccessModalProps) {
   useEffect(() => {
     // Prevent body scroll when modal is open
@@ -72,7 +74,7 @@ export default function SuccessModal({
           onClick={onClose}
           className="w-full rounded-md bg-orange-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-700"
         >
-          Back to Dashboard
+          {buttonText}
         </button>
       </div>
     </div>
