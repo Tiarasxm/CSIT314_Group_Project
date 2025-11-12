@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import SuccessModal from "@/components/ui/success-modal";
+import { useRequestsCache } from "@/lib/hooks/use-requests-cache";
 
 const CATEGORIES = [
   "Household Support",
@@ -17,6 +18,7 @@ const CATEGORIES = [
 export default function SubmitRequestPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { invalidateCache } = useRequestsCache();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -138,8 +140,8 @@ export default function SubmitRequestPage() {
         return;
       }
 
-      // Cache will be invalidated on next page load
-      // Stats cache is module-level, so it will refresh automatically
+      // Invalidate all request caches to ensure fresh data
+      invalidateCache();
 
       setShowSuccess(true);
     } catch (error) {
@@ -151,7 +153,9 @@ export default function SubmitRequestPage() {
 
   const handleSuccessClose = () => {
     setShowSuccess(false);
-    router.push("/user/dashboard");
+    // Use hard redirect to ensure page fully reloads with fresh data
+    // This guarantees the new request appears in the list
+    window.location.href = "/user/requests";
   };
 
   return (
@@ -376,6 +380,7 @@ export default function SubmitRequestPage() {
           title="Your request has been submitted successfully!"
           message="Our CSR representatives will review it and reach out to you soon."
           onClose={handleSuccessClose}
+          buttonText="View Requests"
         />
       )}
     </>

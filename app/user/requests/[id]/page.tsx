@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import ConfirmationModal from "@/components/ui/confirmation-modal";
+import { useRequestsCache } from "@/lib/hooks/use-requests-cache";
 
 export default function RequestDetailPage() {
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
+  const { invalidateCache } = useRequestsCache();
   const [request, setRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -20,8 +23,14 @@ export default function RequestDetailPage() {
   });
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
+    // Don't fetch if we're in the process of deleting
+    if (isDeleting) return;
+
     const fetchRequest = async () => {
       const {
         data: { user },
@@ -40,7 +49,11 @@ export default function RequestDetailPage() {
         .single();
 
       if (error || !data) {
-        console.error("Error fetching request:", error);
+        // Only log error if it's not a "not found" error (which is expected after deletion)
+        if (error?.code !== 'PGRST116' && error?.message !== 'No rows') {
+          console.error("Error fetching request:", error);
+        }
+        // Redirect to requests list if request not found
         router.push("/user/requests");
         return;
       }
@@ -57,7 +70,7 @@ export default function RequestDetailPage() {
     if (params.id) {
       fetchRequest();
     }
-  }, [supabase, router, params.id]);
+  }, [supabase, router, params.id, isDeleting]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -205,6 +218,74 @@ export default function RequestDetailPage() {
     }
   };
 
+  const handleWithdraw = async () => {
+    if (!request || request.status !== "pending") return;
+
+    setWithdrawing(true);
+    setIsDeleting(true); // Prevent refetching
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      // Delete associated files from storage
+      if (request.attachments && request.attachments.length > 0) {
+        for (const url of request.attachments) {
+          try {
+            if (url.includes("/request-files/")) {
+              const urlParts = url.split("/request-files/");
+              if (urlParts.length > 1) {
+                const filePath = urlParts[1].split("?")[0];
+                await supabase.storage.from("request-files").remove([filePath]);
+              }
+            }
+          } catch (error) {
+            console.warn("Error removing file:", error);
+            // Continue with deletion even if file removal fails
+          }
+        }
+      }
+
+      // Delete the request
+      const { error: deleteError } = await supabase
+        .from("requests")
+        .delete()
+        .eq("id", request.id)
+        .eq("user_id", user.id)
+        .eq("status", "pending"); // Extra safety check
+
+      if (deleteError) {
+        console.error("Error deleting request:", deleteError);
+        console.error("Delete error details:", JSON.stringify(deleteError, null, 2));
+        alert(`Failed to withdraw request: ${deleteError.message || "Unknown error"}. Please check if the DELETE policy is set up correctly.`);
+        setIsDeleting(false);
+        setWithdrawing(false);
+        return;
+      }
+
+      // Invalidate all request caches to ensure fresh data
+      invalidateCache();
+
+      // Close modal
+      setShowWithdrawModal(false);
+      
+      // Use hard redirect to ensure page fully reloads with fresh data
+      // This guarantees the withdrawn request is gone from the list
+      window.location.href = "/user/requests";
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred. Please try again.");
+      setIsDeleting(false);
+      setWithdrawing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -286,25 +367,47 @@ export default function RequestDetailPage() {
               </div>
               <div className="flex items-center gap-3">
                 {request.status === "pending" && !isEditing && (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="flex items-center gap-2 rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="flex items-center gap-2 rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                    Edit Request
-                  </button>
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                      Edit Request
+                    </button>
+                    <button
+                      onClick={() => setShowWithdrawModal(true)}
+                      disabled={withdrawing}
+                      className="flex items-center gap-2 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                      Withdraw Request
+                    </button>
+                  </>
                 )}
                 <span
                   className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(
@@ -638,6 +741,19 @@ export default function RequestDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Withdraw Confirmation Modal */}
+        {showWithdrawModal && (
+          <ConfirmationModal
+            title="Withdraw Request"
+            message="Are you sure you want to withdraw this request? This action cannot be undone. All associated files will be permanently deleted."
+            confirmText="Withdraw Request"
+            cancelText="Cancel"
+            onConfirm={handleWithdraw}
+            onCancel={() => setShowWithdrawModal(false)}
+            isDestructive={true}
+          />
+        )}
     </>
   );
 }
