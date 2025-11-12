@@ -31,6 +31,7 @@ export default function Sidebar({ userRole = "user" }: SidebarProps) {
       <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
         <Link
           href="/user/dashboard"
+          prefetch={true}
           className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
             isActive("/user/dashboard")
               ? "bg-orange-100 text-orange-700"
@@ -55,6 +56,7 @@ export default function Sidebar({ userRole = "user" }: SidebarProps) {
 
         <Link
           href="/user/announcements"
+          prefetch={true}
           className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
             isActive("/user/announcements")
               ? "bg-orange-100 text-orange-700"
@@ -79,6 +81,7 @@ export default function Sidebar({ userRole = "user" }: SidebarProps) {
 
         <Link
           href="/user/requests"
+          prefetch={true}
           className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
             isActive("/user/requests")
               ? "bg-orange-100 text-orange-700"
@@ -103,6 +106,7 @@ export default function Sidebar({ userRole = "user" }: SidebarProps) {
 
         <Link
           href="/user/profile"
+          prefetch={true}
           className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
             isActive("/user/profile")
               ? "bg-orange-100 text-orange-700"
