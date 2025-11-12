@@ -138,6 +138,9 @@ export default function SubmitRequestPage() {
         return;
       }
 
+      // Cache will be invalidated on next page load
+      // Stats cache is module-level, so it will refresh automatically
+
       setShowSuccess(true);
     } catch (error) {
       console.error("Error:", error);

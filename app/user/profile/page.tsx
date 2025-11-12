@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useUserData } from "@/lib/hooks/use-user-data";
 
 export default function ProfilePage() {
   const router = useRouter();
   const supabase = createClient();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: userLoading } = useUserData();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
@@ -28,51 +29,26 @@ export default function ProfilePage() {
   const [initialData, setInitialData] = useState<any>(null);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
+    if (userLoading || !user) return;
 
-      if (!authUser) {
-        router.push("/login");
-        return;
-      }
-
-      const { data: userData } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", authUser.id)
-        .single();
-
-      if (userData?.role !== "user") {
-        router.push("/login");
-        return;
-      }
-
-      const userInfo = userData || authUser;
-      setUser(userInfo);
-
-      const data = {
-        first_name: userInfo.first_name || "",
-        last_name: userInfo.last_name || "",
-        email: userInfo.email || authUser.email || "",
-        password: "",
-        confirmPassword: "",
-        contact_number: userInfo.contact_number || "",
-        date_of_birth: userInfo.date_of_birth || "",
-        gender: userInfo.gender || "",
-        language: userInfo.language || "",
-        address: userInfo.address || "",
-        medical_condition: userInfo.medical_condition || "",
-      };
-
-      setFormData(data);
-      setInitialData(data);
-      setLoading(false);
+    const data = {
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      email: user.email || "",
+      password: "",
+      confirmPassword: "",
+      contact_number: user.contact_number || "",
+      date_of_birth: user.date_of_birth || "",
+      gender: user.gender || "",
+      language: user.language || "",
+      address: user.address || "",
+      medical_condition: user.medical_condition || "",
     };
 
-    fetchUser();
-  }, [supabase, router]);
+    setFormData(data);
+    setInitialData(data);
+    setLoading(false);
+  }, [user, userLoading]);
 
   useEffect(() => {
     if (initialData) {
@@ -178,10 +154,13 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
+  if (userLoading || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p>Loading...</p>
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-600 border-t-transparent"></div>
+          <p className="text-sm text-black">Loading...</p>
+        </div>
       </div>
     );
   }
