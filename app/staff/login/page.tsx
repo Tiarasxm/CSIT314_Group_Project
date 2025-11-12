@@ -30,15 +30,34 @@ export default function StaffLoginPage() {
 
       if (data.user) {
         // Get user role from users table
+        // Use .eq("id", data.user.id) to read own data (allowed by RLS)
         const { data: userData, error: userError } = await supabase
           .from("users")
-          .select("role")
+          .select("role, email, name")
           .eq("id", data.user.id)
           .single();
+        
+        // Debug logging
+        console.log("Auth user ID:", data.user.id);
+        console.log("User data from DB:", userData);
+        console.log("User error:", userError);
 
         // If user doesn't exist in users table, it's not a staff account
-        if (userError || !userData) {
-          setError("This account is not authorized for staff access. Staff accounts must be pre-created.");
+        if (userError) {
+          // Check if it's a "not found" error or a different error
+          if (userError.code === 'PGRST116' || userError.message?.includes('No rows')) {
+            setError("This account is not authorized for staff access. Staff accounts must be pre-created in the database. Run: supabase/migrations/003_add_admin_accounts.sql");
+          } else {
+            setError(`Database error: ${userError.message}. Check browser console for details.`);
+            console.error("Database error:", userError);
+          }
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
+        if (!userData) {
+          setError("This account is not authorized for staff access. Staff accounts must be pre-created in the database. Run: supabase/migrations/003_add_admin_accounts.sql");
           await supabase.auth.signOut();
           setLoading(false);
           return;
