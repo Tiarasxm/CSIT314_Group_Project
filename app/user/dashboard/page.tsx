@@ -289,7 +289,7 @@ export default function UserDashboard() {
               href="/user/requests/new"
               className="mt-4 inline-block text-orange-600 hover:underline"
             >
-              Submit your first request
+              Submit your request
             </Link>
           </div>
         )}
