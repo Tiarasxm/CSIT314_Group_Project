@@ -21,12 +21,36 @@ export default function StaffLoginPage() {
     setLoading(true);
 
     try {
+      // Check if Supabase is configured
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        setError("Supabase configuration is missing. Please check your environment variables.");
+        setLoading(false);
+        return;
+      }
+
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
-      if (signInError) throw signInError;
+      if (signInError) {
+        // Provide more detailed error messages
+        if (signInError.message?.includes('Failed to fetch') || signInError.message?.includes('NetworkError')) {
+          setError("Network error: Unable to connect to Supabase. Please check your internet connection and Supabase URL configuration.");
+          console.error("Supabase connection error:", {
+            url: supabaseUrl,
+            hasKey: !!supabaseKey,
+            error: signInError
+          });
+        } else {
+          throw signInError;
+        }
+        setLoading(false);
+        return;
+      }
 
       if (data.user) {
         // Get user role from users table
