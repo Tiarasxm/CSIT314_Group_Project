@@ -56,8 +56,8 @@ export default function CSRRepresentativeDashboard() {
           supabase
             .from("requests")
             .select("*", { count: "exact", head: true })
-            .eq("accepted_by", authUser.id)
-            .eq("shortlisted", true),
+            .eq("shortlisted", true)
+            .eq("shortlisted_by", authUser.id),
           supabase
             .from("requests")
             .select("*", { count: "exact", head: true })
