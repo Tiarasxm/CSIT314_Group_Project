@@ -65,7 +65,8 @@ export default function CSRCompletedServicesPage() {
 
     const { data, error } = await supabase
       .from("requests")
-      .select(`
+      .select(
+        `
         *,
         users:user_id (
           id,
@@ -75,7 +76,8 @@ export default function CSRCompletedServicesPage() {
           email,
           profile_image_url
         )
-      `)
+      `
+      )
       .eq("accepted_by", authUser.id)
       .eq("status", "completed")
       .order("created_at", { ascending: false });
@@ -93,6 +95,48 @@ export default function CSRCompletedServicesPage() {
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("Failed to generate PDF. Please try again.");
+    }
+  };
+
+  const handleShortlist = async (
+    requestId: string,
+    currentShortlisted: boolean,
+    event: React.MouseEvent
+  ) => {
+    event.stopPropagation(); // Prevent card click if wrapped in one
+
+    try {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+
+      if (!authUser) {
+        alert("You must be logged in to shortlist requests.");
+        return;
+      }
+
+      const newShortlistValue = !currentShortlisted;
+      const { error } = await supabase
+        .from("requests")
+        .update({
+          shortlisted: newShortlistValue,
+          shortlisted_by: newShortlistValue ? authUser.id : null,
+        })
+        .eq("id", requestId);
+
+      if (error) {
+        console.error("Error updating shortlist:", error);
+        alert(
+          `Failed to update shortlist: ${error.message || "Unknown error"}`
+        );
+        return;
+      }
+
+      // Refresh the requests list
+      await fetchRequests();
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred. Please try again.");
     }
   };
 
@@ -211,9 +255,7 @@ export default function CSRCompletedServicesPage() {
           <div className="fixed inset-0 z-40 flex items-center justify-center backdrop-blur-sm">
             <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-black">
-                  Filter by
-                </h3>
+                <h3 className="text-lg font-semibold text-black">Filter by</h3>
                 <button
                   onClick={() => setShowFilter(false)}
                   className="text-black hover:text-black"
@@ -241,10 +283,7 @@ export default function CSRCompletedServicesPage() {
                 </label>
                 <div className="space-y-2">
                   {categories.map((category) => (
-                    <label
-                      key={category}
-                      className="flex items-center gap-2"
-                    >
+                    <label key={category} className="flex items-center gap-2">
                       <input
                         type="checkbox"
                         checked={selectedCategories.includes(category)}
@@ -284,9 +323,7 @@ export default function CSRCompletedServicesPage() {
                         onChange={(e) => setSelectedTimeRange(e.target.value)}
                         className="border-zinc-300 text-orange-600 focus:ring-orange-500"
                       />
-                      <span className="text-sm text-black">
-                        In {days} days
-                      </span>
+                      <span className="text-sm text-black">In {days} days</span>
                     </label>
                   ))}
                 </div>
@@ -308,7 +345,10 @@ export default function CSRCompletedServicesPage() {
               const userImage = requestUser?.profile_image_url;
 
               return (
-                <div key={request.id} className="rounded-lg bg-white p-6 shadow">
+                <div
+                  key={request.id}
+                  className="rounded-lg bg-white p-6 shadow"
+                >
                   {/* Category and Request ID */}
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -346,13 +386,18 @@ export default function CSRCompletedServicesPage() {
                       <div className="h-12 w-12 rounded-full bg-zinc-200"></div>
                     )}
                     <div>
-                      <div className="font-medium text-zinc-900">{userName}</div>
+                      <div className="font-medium text-zinc-900">
+                        {userName}
+                      </div>
                       <div className="text-xs text-black">
                         {request.preferred_at
-                          ? new Date(request.preferred_at).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
+                          ? new Date(request.preferred_at).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )
                           : "No time specified"}{" "}
                         {request.preferred_at
                           ? new Date(request.preferred_at).toLocaleDateString()
@@ -378,7 +423,7 @@ export default function CSRCompletedServicesPage() {
                             Mobile:{" "}
                           </span>
                           <span className="text-sm text-black">
-                            {request.volunteer_mobile}
+                            +65 {request.volunteer_mobile}
                           </span>
                         </div>
                       )}
@@ -411,12 +456,35 @@ export default function CSRCompletedServicesPage() {
                   )}
 
                   {/* Actions */}
-                  <button
-                    onClick={() => handleExportPDF(request)}
-                    className="w-full rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-zinc-50"
-                  >
-                    Export
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleExportPDF(request)}
+                      className="w-full rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-zinc-50"
+                    >
+                      Export
+                    </button>
+                    <button
+                      onClick={(e) =>
+                        handleShortlist(
+                          request.id,
+                          request.shortlisted &&
+                            request.shortlisted_by === user?.id,
+                          e
+                        )
+                      }
+                      className={`w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                        request.shortlisted &&
+                        request.shortlisted_by === user?.id
+                          ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                          : "border border-zinc-300 text-black hover:bg-zinc-50"
+                      }`}
+                    >
+                      {request.shortlisted &&
+                      request.shortlisted_by === user?.id
+                        ? "★ Shortlisted"
+                        : "☆ Shortlist"}
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -426,4 +494,3 @@ export default function CSRCompletedServicesPage() {
     </>
   );
 }
-

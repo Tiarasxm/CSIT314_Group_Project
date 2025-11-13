@@ -20,7 +20,10 @@ function formatDateTime(value?: string | null) {
       month: "short",
       year: "numeric",
     }),
-    time: dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    time: dateObj.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
   };
 }
 
@@ -35,7 +38,10 @@ export default function CSRRequestDetailPage() {
   const [assignContext, setAssignContext] = useState<any>(null);
   const [processingShortlist, setProcessingShortlist] = useState(false);
 
-  const requestId = useMemo(() => (params?.id ? String(params.id) : ""), [params?.id]);
+  const requestId = useMemo(
+    () => (params?.id ? String(params.id) : ""),
+    [params?.id]
+  );
 
   useEffect(() => {
     if (!requestId) return;
@@ -209,7 +215,9 @@ export default function CSRRequestDetailPage() {
     requester?.name ||
     `${requester?.first_name || ""} ${requester?.last_name || ""}`.trim() ||
     "Unknown User";
-  const preferred = formatDateTime(request?.scheduled_at || request?.preferred_at);
+  const preferred = formatDateTime(
+    request?.scheduled_at || request?.preferred_at
+  );
   const created = formatDateTime(request.created_at);
 
   return (
@@ -220,13 +228,27 @@ export default function CSRRequestDetailPage() {
             onClick={() => router.back()}
             className="rounded-full border border-zinc-200 p-2 text-black transition hover:bg-zinc-100"
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900">{request.category || "Request details"}</h1>
-            <p className="text-sm text-zinc-500">Request ID: #{request.id.slice(0, 8)}</p>
+            <h1 className="text-2xl font-bold text-zinc-900">
+              {request.category || "Request details"}
+            </h1>
+            <p className="text-sm text-zinc-500">
+              Request ID: #{request.id.slice(0, 8)}
+            </p>
           </div>
         </div>
 
@@ -253,7 +275,11 @@ export default function CSRRequestDetailPage() {
                 : "border-zinc-300 text-black hover:bg-zinc-50"
             }`}
           >
-            {processingShortlist ? "Updating..." : request.shortlisted ? "Remove from Shortlist" : "Shortlist"}
+            {processingShortlist
+              ? "Updating..."
+              : request.shortlisted
+              ? "Remove from Shortlist"
+              : "Shortlist"}
           </button>
           <button
             onClick={handleExportPDF}
@@ -265,7 +291,9 @@ export default function CSRRequestDetailPage() {
 
         <div className="space-y-6">
           <section className="rounded-2xl bg-white p-6 shadow">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-900">Request Summary</h2>
+            <h2 className="mb-4 text-lg font-semibold text-zinc-900">
+              Request Summary
+            </h2>
             <div className="grid gap-6 md:grid-cols-2">
               <div>
                 <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -284,7 +312,9 @@ export default function CSRRequestDetailPage() {
                     </div>
                   )}
                   <div>
-                    <p className="text-sm font-medium text-zinc-900">{requesterName}</p>
+                    <p className="text-sm font-medium text-zinc-900">
+                      {requesterName}
+                    </p>
                     <p className="text-xs text-zinc-500">{requester?.email}</p>
                   </div>
                 </div>
@@ -311,18 +341,26 @@ export default function CSRRequestDetailPage() {
                 <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Status
                 </span>
-                <p className="mt-2 text-sm font-medium text-orange-600 capitalize">{request.status}</p>
+                <p className="mt-2 text-sm font-medium text-orange-600 capitalize">
+                  {request.status}
+                </p>
               </div>
             </div>
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-900">Description</h2>
-            <p className="whitespace-pre-line text-sm text-zinc-800">{request.description}</p>
+            <h2 className="mb-4 text-lg font-semibold text-zinc-900">
+              Description
+            </h2>
+            <p className="whitespace-pre-line text-sm text-zinc-800">
+              {request.description}
+            </p>
 
             {request.additional_notes && (
               <div className="mt-6">
-                <h3 className="text-sm font-semibold text-zinc-900">Additional Notes</h3>
+                <h3 className="text-sm font-semibold text-zinc-900">
+                  Additional Notes
+                </h3>
                 <p className="mt-2 whitespace-pre-line text-sm text-zinc-700">
                   {request.additional_notes}
                 </p>
@@ -332,12 +370,19 @@ export default function CSRRequestDetailPage() {
 
           {request.attachments && request.attachments.length > 0 && (
             <section className="rounded-2xl bg-white p-6 shadow">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-900">Attachments</h2>
+              <h2 className="mb-4 text-lg font-semibold text-zinc-900">
+                Attachments
+              </h2>
               <div className="grid gap-4 md:grid-cols-2">
                 {request.attachments.map((attachment: string) => {
-                  const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(attachment);
+                  const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(
+                    attachment
+                  );
                   return (
-                    <div key={attachment} className="rounded-lg border border-zinc-200 p-4">
+                    <div
+                      key={attachment}
+                      className="rounded-lg border border-zinc-200 p-4"
+                    >
                       {isImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -357,7 +402,12 @@ export default function CSRRequestDetailPage() {
                         className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-orange-600 hover:underline"
                       >
                         View Attachment
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -375,20 +425,26 @@ export default function CSRRequestDetailPage() {
 
           {request.volunteer_name && (
             <section className="rounded-2xl bg-white p-6 shadow">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-900">Assigned Volunteer</h2>
+              <h2 className="mb-4 text-lg font-semibold text-zinc-900">
+                Assigned Volunteer
+              </h2>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                     Name
                   </span>
-                  <p className="mt-2 text-sm font-medium text-zinc-900">{request.volunteer_name}</p>
+                  <p className="mt-2 text-sm font-medium text-zinc-900">
+                    {request.volunteer_name}
+                  </p>
                 </div>
                 {request.volunteer_mobile && (
                   <div>
                     <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                       Mobile
                     </span>
-                    <p className="mt-2 text-sm text-zinc-900">{request.volunteer_mobile}</p>
+                    <p className="mt-2 text-sm text-zinc-900">
+                      +65 {request.volunteer_mobile}
+                    </p>
                   </div>
                 )}
                 {request.volunteer_image_url && (
@@ -445,5 +501,3 @@ export default function CSRRequestDetailPage() {
     </>
   );
 }
-
-

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AssignVolunteerModal from "@/components/ui/assign-volunteer-modal";
+import SuccessConfirmationModal from "@/components/ui/success-confirmation-modal";
 import { getUserDisplayName } from "@/lib/utils/pdf-export";
 
 export default function CSRActiveAssignmentsPage() {
@@ -16,6 +17,10 @@ export default function CSRActiveAssignmentsPage() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [requestToComplete, setRequestToComplete] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,7 +61,8 @@ export default function CSRActiveAssignmentsPage() {
 
     const { data, error } = await supabase
       .from("requests")
-      .select(`
+      .select(
+        `
         *,
         users:user_id (
           id,
@@ -66,7 +72,8 @@ export default function CSRActiveAssignmentsPage() {
           email,
           profile_image_url
         )
-      `)
+      `
+      )
       .eq("accepted_by", authUser.id)
       .in("status", ["accepted", "in-progress"])
       .order("created_at", { ascending: false });
@@ -78,9 +85,110 @@ export default function CSRActiveAssignmentsPage() {
     }
   };
 
-  const handleEditVolunteer = (request: any) => {
+  const handleViewDetails = (id: string) => {
+    router.push(`/csr-representative/requests/${id}`);
+  };
+
+  const handleEditVolunteer = (request: any, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent card click
     setSelectedRequest(request.id);
     setShowAssignModal(true);
+  };
+
+  const formatPreferredDate = (request: any) => {
+    const preferred = request?.scheduled_at || request?.preferred_at;
+    if (!preferred) {
+      return {
+        time: "No time specified",
+        date: "",
+      };
+    }
+    const dateObj = new Date(preferred);
+    return {
+      time: dateObj.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      date: dateObj.toLocaleDateString(),
+    };
+  };
+
+  const handleMarkComplete = (requestId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent card click
+    setRequestToComplete(requestId);
+    setShowCompleteModal(true);
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!requestToComplete) return;
+
+    try {
+      const { error } = await supabase
+        .from("requests")
+        .update({ status: "completed" })
+        .eq("id", requestToComplete);
+
+      if (error) {
+        console.error("Error marking request as completed:", error);
+        alert("Failed to mark request as completed. Please try again.");
+        return;
+      }
+
+      setShowCompleteModal(false);
+      setRequestToComplete(null);
+      await fetchRequests();
+      alert("Request marked as completed successfully!");
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred. Please try again.");
+    }
+  };
+
+  const handleCancelComplete = () => {
+    setShowCompleteModal(false);
+    setRequestToComplete(null);
+  };
+
+  const handleShortlist = async (
+    requestId: string,
+    currentShortlisted: boolean,
+    event: React.MouseEvent
+  ) => {
+    event.stopPropagation(); // Prevent card click
+
+    try {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+
+      if (!authUser) {
+        alert("You must be logged in to shortlist requests.");
+        return;
+      }
+
+      const newShortlistValue = !currentShortlisted;
+      const { error } = await supabase
+        .from("requests")
+        .update({
+          shortlisted: newShortlistValue,
+          shortlisted_by: newShortlistValue ? authUser.id : null,
+        })
+        .eq("id", requestId);
+
+      if (error) {
+        console.error("Error updating shortlist:", error);
+        alert(
+          `Failed to update shortlist: ${error.message || "Unknown error"}`
+        );
+        return;
+      }
+
+      // Refresh the requests list
+      await fetchRequests();
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred. Please try again.");
+    }
   };
 
   const handleConfirmEdit = async (volunteerData: {
@@ -213,9 +321,22 @@ export default function CSRActiveAssignmentsPage() {
               const requestUser = request.users;
               const userName = getUserDisplayName(requestUser);
               const userImage = requestUser?.profile_image_url;
+              const preferredDate = formatPreferredDate(request);
 
               return (
-                <div key={request.id} className="rounded-lg bg-white p-6 shadow">
+                <div
+                  key={request.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleViewDetails(request.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleViewDetails(request.id);
+                    }
+                  }}
+                  className="cursor-pointer rounded-lg bg-white p-6 shadow transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                >
                   {/* Category and Request ID */}
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -242,7 +363,7 @@ export default function CSRActiveAssignmentsPage() {
                   </div>
 
                   {/* User Info */}
-                  <div className="mb-4 flex items-center gap-3">
+                  <div className="mb-4 flex items-center gap-3 bg-black/5 rounded-xl p-4">
                     {userImage ? (
                       <img
                         src={userImage}
@@ -253,44 +374,20 @@ export default function CSRActiveAssignmentsPage() {
                       <div className="h-12 w-12 rounded-full bg-zinc-200"></div>
                     )}
                     <div>
-                      <div className="font-medium text-zinc-900">{userName}</div>
+                      <div className="font-medium text-zinc-900">
+                        {userName}
+                      </div>
                       <div className="text-xs text-black">
-                        {request.preferred_at
-                          ? new Date(request.preferred_at).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : "No time specified"}{" "}
-                        {request.preferred_at
-                          ? new Date(request.preferred_at).toLocaleDateString()
-                          : ""}
+                        {preferredDate.time} {preferredDate.date}
                       </div>
                     </div>
                   </div>
 
                   {/* Volunteer Info */}
                   {request.volunteer_name && (
-                    <div className="mb-4 space-y-2">
-                      <div>
-                        <span className="text-xs font-medium text-black">
-                          Volunteer:{" "}
-                        </span>
-                        <span className="text-sm text-black">
-                          {request.volunteer_name}
-                        </span>
-                      </div>
-                      {request.volunteer_mobile && (
-                        <div>
-                          <span className="text-xs font-medium text-black">
-                            Mobile:{" "}
-                          </span>
-                          <span className="text-sm text-black">
-                            {request.volunteer_mobile}
-                          </span>
-                        </div>
-                      )}
+                    <div className="mb-4 space-y-2 flex flex-row">
                       {request.volunteer_image_url && (
-                        <div className="mt-2">
+                        <div className="m-2 pr-4">
                           <img
                             src={request.volunteer_image_url}
                             alt={request.volunteer_name}
@@ -298,6 +395,26 @@ export default function CSRActiveAssignmentsPage() {
                           />
                         </div>
                       )}
+                      <div className="flex flex-col gap-2 items-left justify-center">
+                        <div>
+                          <span className="text-xs font-medium text-black">
+                            Volunteer:{" "}
+                          </span>
+                          <span className="text-sm text-black">
+                            {request.volunteer_name}
+                          </span>
+                        </div>
+                        {request.volunteer_mobile && (
+                          <div>
+                            <span className="text-xs font-medium text-black">
+                              Mobile:{" "}
+                            </span>
+                            <span className="text-sm text-black">
+                              +65 {request.volunteer_mobile}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -318,18 +435,61 @@ export default function CSRActiveAssignmentsPage() {
                   )}
 
                   {/* Actions */}
-                  <button
-                    onClick={() => handleEditVolunteer(request)}
-                    className="w-full rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
-                  >
-                    Edit Volunteer
-                  </button>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => handleEditVolunteer(request, e)}
+                        className="flex-1 rounded-md border-2 border-orange-600 px-3 py-2 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-50"
+                      >
+                        Edit Volunteer
+                      </button>
+                      <button
+                        onClick={(e) => handleMarkComplete(request.id, e)}
+                        className="flex-1 rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+                      >
+                        Mark Complete
+                      </button>
+                    </div>
+                    <button
+                      onClick={(e) =>
+                        handleShortlist(
+                          request.id,
+                          request.shortlisted &&
+                            request.shortlisted_by === user?.id,
+                          e
+                        )
+                      }
+                      className={`w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                        request.shortlisted &&
+                        request.shortlisted_by === user?.id
+                          ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                          : "border border-zinc-300 text-black hover:bg-zinc-50"
+                      }`}
+                    >
+                      {request.shortlisted &&
+                      request.shortlisted_by === user?.id
+                        ? "★ Shortlisted"
+                        : "☆ Shortlist"}
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal for Marking Complete */}
+      {showCompleteModal && (
+        <SuccessConfirmationModal
+          title="Mark Request as Completed"
+          message="Are you sure you want to mark this request as completed? This will move it to the completed requests list."
+          confirmText="Yes, Mark Complete"
+          cancelText="Cancel"
+          onConfirm={handleConfirmComplete}
+          onCancel={handleCancelComplete}
+        />
+      )}
 
       {/* Edit Volunteer Modal */}
       {showAssignModal && selectedRequest && (
@@ -346,8 +506,9 @@ export default function CSRActiveAssignmentsPage() {
               ? {
                   volunteerName: requests.find((r) => r.id === selectedRequest)
                     ?.volunteer_name,
-                  volunteerMobile: requests.find((r) => r.id === selectedRequest)
-                    ?.volunteer_mobile,
+                  volunteerMobile: requests.find(
+                    (r) => r.id === selectedRequest
+                  )?.volunteer_mobile,
                   volunteerNote: requests.find((r) => r.id === selectedRequest)
                     ?.volunteer_note,
                   volunteerImageUrl: requests.find(
@@ -361,4 +522,3 @@ export default function CSRActiveAssignmentsPage() {
     </>
   );
 }
-
