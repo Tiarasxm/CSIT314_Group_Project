@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import SuspendedBanner from "@/components/ui/suspended-banner";
 
 export default function CSRRepresentativeDashboard() {
   const router = useRouter();
@@ -42,28 +43,32 @@ export default function CSRRepresentativeDashboard() {
       setUser(userData);
 
       // Fetch stats
-      const [newRequestsResult, activeResult, shortlistedResult, completedResult] =
-        await Promise.all([
-          supabase
-            .from("requests")
-            .select("*", { count: "exact", head: true })
-            .eq("status", "pending"),
-          supabase
-            .from("requests")
-            .select("*", { count: "exact", head: true })
-            .eq("accepted_by", authUser.id)
-            .in("status", ["accepted", "in-progress"]),
-          supabase
-            .from("requests")
-            .select("*", { count: "exact", head: true })
-            .eq("shortlisted", true)
-            .eq("shortlisted_by", authUser.id),
-          supabase
-            .from("requests")
-            .select("*", { count: "exact", head: true })
-            .eq("accepted_by", authUser.id)
-            .eq("status", "completed"),
-        ]);
+      const [
+        newRequestsResult,
+        activeResult,
+        shortlistedResult,
+        completedResult,
+      ] = await Promise.all([
+        supabase
+          .from("requests")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending"),
+        supabase
+          .from("requests")
+          .select("*", { count: "exact", head: true })
+          .eq("accepted_by", authUser.id)
+          .in("status", ["accepted", "in-progress"]),
+        supabase
+          .from("requests")
+          .select("*", { count: "exact", head: true })
+          .eq("shortlisted", true)
+          .eq("shortlisted_by", authUser.id),
+        supabase
+          .from("requests")
+          .select("*", { count: "exact", head: true })
+          .eq("accepted_by", authUser.id)
+          .eq("status", "completed"),
+      ]);
 
       setStats({
         newRequests: newRequestsResult.count || 0,
@@ -98,8 +103,18 @@ export default function CSRRepresentativeDashboard() {
       value: stats.newRequests,
       href: "/csr-representative/requests/new",
       icon: (
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 4v16m8-8H4"
+          />
         </svg>
       ),
     },
@@ -109,7 +124,12 @@ export default function CSRRepresentativeDashboard() {
       value: stats.activeAssignments,
       href: "/csr-representative/requests/active",
       icon: (
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -125,7 +145,12 @@ export default function CSRRepresentativeDashboard() {
       value: stats.shortlisted,
       href: "/csr-representative/requests/shortlist",
       icon: (
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -141,64 +166,103 @@ export default function CSRRepresentativeDashboard() {
       value: stats.completed,
       href: "/csr-representative/requests/completed",
       icon: (
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
         </svg>
       ),
     },
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10 space-y-10">
-      <section className="rounded-3xl bg-gradient-to-r from-[#f8b75c] via-[#f59c34] to-[#f07b1f] p-10 text-white shadow-lg">
-        <p className="text-sm uppercase tracking-wider text-white/80">Welcome back</p>
-        <h2 className="mt-2 text-3xl font-bold leading-snug">
-          Hi, {userName || "there"}! Here's what’s happening today.
-        </h2>
-        <p className="mt-4 max-w-2xl text-white/90">
-          Let us know what you need. Our team and volunteers are here to help you every step of the way.
-        </p>
-        <Link
-          href="/csr-representative/requests/new"
-          className="mt-8 inline-flex items-center gap-2 rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-orange-600 shadow transition hover:bg-white"
-        >
-          All New Requests
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-      </section>
-
-      <section className="grid gap-6 md:grid-cols-2">
-        {cards.map((card) => (
+    <>
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-6xl px-6 py-10 space-y-10 ${
+          user?.is_suspended ? "mt-14" : ""
+        }`}
+      >
+        <section className="rounded-3xl bg-gradient-to-r from-[#f8b75c] via-[#f59c34] to-[#f07b1f] p-10 text-white shadow-lg">
+          <p className="text-sm uppercase tracking-wider text-white/80">
+            Welcome back
+          </p>
+          <h2 className="mt-2 text-3xl font-bold leading-snug">
+            Hi, {userName || "there"}! Here's what's happening today.
+          </h2>
+          <p className="mt-4 max-w-2xl text-white/90">
+            Let us know what you need. Our team and volunteers are here to help
+            you every step of the way.
+          </p>
           <Link
-            key={card.href}
-            href={card.href}
-            className="group rounded-3xl border border-orange-100 bg-white/95 p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+            href="/csr-representative/requests/new"
+            className="mt-8 inline-flex items-center gap-2 rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-orange-600 shadow transition hover:bg-white"
           >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                  {card.icon}
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-zinc-900">{card.title}</h3>
-                  <p className="text-sm text-zinc-500">{card.description}</p>
-                </div>
-              </div>
-              <svg
-                className="h-5 w-5 text-orange-300 transition group-hover:text-orange-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-            <div className="mt-8 text-4xl font-bold text-zinc-900">{card.value}</div>
+            All New Requests
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
           </Link>
-        ))}
-      </section>
-    </div>
+        </section>
+
+        <section className="grid gap-6 md:grid-cols-2">
+          {cards.map((card) => (
+            <Link
+              key={card.href}
+              href={card.href}
+              className="group rounded-3xl border border-orange-100 bg-white/95 p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+                    {card.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-zinc-900">
+                      {card.title}
+                    </h3>
+                    <p className="text-sm text-zinc-500">{card.description}</p>
+                  </div>
+                </div>
+                <svg
+                  className="h-5 w-5 text-orange-300 transition group-hover:text-orange-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </div>
+              <div className="mt-8 text-4xl font-bold text-zinc-900">
+                {card.value}
+              </div>
+            </Link>
+          ))}
+        </section>
+      </div>
+    </>
   );
 }

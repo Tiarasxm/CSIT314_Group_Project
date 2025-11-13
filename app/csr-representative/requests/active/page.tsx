@@ -7,6 +7,8 @@ import Link from "next/link";
 import AssignVolunteerModal from "@/components/ui/assign-volunteer-modal";
 import SuccessConfirmationModal from "@/components/ui/success-confirmation-modal";
 import { getUserDisplayName } from "@/lib/utils/pdf-export";
+import SuspendedBanner from "@/components/ui/suspended-banner";
+import SuspendedModal from "@/components/ui/suspended-modal";
 
 export default function CSRActiveAssignmentsPage() {
   const router = useRouter();
@@ -21,6 +23,7 @@ export default function CSRActiveAssignmentsPage() {
   const [requestToComplete, setRequestToComplete] = useState<string | null>(
     null
   );
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,6 +94,13 @@ export default function CSRActiveAssignmentsPage() {
 
   const handleEditVolunteer = (request: any, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent card click
+
+    // Check if CSR is suspended
+    if (user?.is_suspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
+
     setSelectedRequest(request.id);
     setShowAssignModal(true);
   };
@@ -115,6 +125,13 @@ export default function CSRActiveAssignmentsPage() {
 
   const handleMarkComplete = (requestId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent card click
+
+    // Check if CSR is suspended
+    if (user?.is_suspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
+
     setRequestToComplete(requestId);
     setShowCompleteModal(true);
   };
@@ -256,7 +273,10 @@ export default function CSRActiveAssignmentsPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl p-6">
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-7xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -518,6 +538,11 @@ export default function CSRActiveAssignmentsPage() {
               : undefined
           }
         />
+      )}
+
+      {/* Suspended Modal */}
+      {showSuspendedModal && (
+        <SuspendedModal onClose={() => setShowSuspendedModal(false)} />
       )}
     </>
   );

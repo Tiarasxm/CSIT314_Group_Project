@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { exportRequestToPDF, getUserDisplayName } from "@/lib/utils/pdf-export";
+import SuspendedBanner from "@/components/ui/suspended-banner";
 
 export default function CSRCompletedServicesPage() {
   const router = useRouter();
@@ -190,7 +191,10 @@ export default function CSRCompletedServicesPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl p-6">
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-7xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">

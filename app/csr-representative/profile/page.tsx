@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import SuspendedBanner from "@/components/ui/suspended-banner";
 
 export default function CSRProfilePage() {
   const router = useRouter();
@@ -101,7 +102,9 @@ export default function CSRProfilePage() {
   }, [formData, initialData]);
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -150,7 +153,9 @@ export default function CSRProfilePage() {
 
       // Upload new image
       const fileExt = file.name.split(".").pop();
-      const fileName = `${authUser.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const fileName = `${authUser.id}/${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(7)}.${fileExt}`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("profile-images")
@@ -230,10 +235,11 @@ export default function CSRProfilePage() {
       }
 
       // Construct full name from first_name and last_name
-      const fullName = [formData.first_name, formData.last_name]
-        .filter(Boolean)
-        .join(" ")
-        .trim() || null;
+      const fullName =
+        [formData.first_name, formData.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || null;
 
       // Update user profile
       const { error } = await supabase
@@ -307,7 +313,10 @@ export default function CSRProfilePage() {
 
   return (
     <>
-      <div className="mx-auto max-w-4xl p-6">
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-4xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
         <h1 className="mb-6 text-2xl font-bold text-zinc-900">Profile</h1>
 
         <form onSubmit={handleSubmit}>
@@ -328,9 +337,7 @@ export default function CSRProfilePage() {
                   {user?.name ? user.name.charAt(0).toUpperCase() : "C"}
                 </div>
               )}
-              <label
-                className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-orange-500 shadow-md transition-colors hover:bg-orange-600"
-              >
+              <label className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-orange-500 shadow-md transition-colors hover:bg-orange-600">
                 <input
                   type="file"
                   accept="image/*"

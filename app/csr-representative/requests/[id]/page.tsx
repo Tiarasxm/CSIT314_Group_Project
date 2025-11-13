@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import AssignVolunteerModal from "@/components/ui/assign-volunteer-modal";
+import SuspendedBanner from "@/components/ui/suspended-banner";
 
 function formatDateTime(value?: string | null) {
   if (!value) {
@@ -33,6 +34,7 @@ export default function CSRRequestDetailPage() {
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const [request, setRequest] = useState<any>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignContext, setAssignContext] = useState<any>(null);
@@ -66,6 +68,8 @@ export default function CSRRequestDetailPage() {
         router.push("/staff/login");
         return;
       }
+
+      setUser(userData);
 
       const { data, error } = await supabase
         .from("requests")
@@ -127,6 +131,12 @@ export default function CSRRequestDetailPage() {
   };
 
   const handleAssignVolunteer = (existingData?: any) => {
+    // Check if CSR is suspended
+    if (user?.is_suspended) {
+      alert("Your account is suspended. You cannot assign or edit volunteers.");
+      return;
+    }
+
     if (!request) return;
     setAssignContext(existingData || null);
     setShowAssignModal(true);
@@ -222,7 +232,10 @@ export default function CSRRequestDetailPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-5xl p-6">
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-5xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
         <div className="mb-6 flex items-center gap-4">
           <button
             onClick={() => router.back()}

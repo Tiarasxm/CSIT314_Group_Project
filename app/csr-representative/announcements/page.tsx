@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import SuspendedBanner from "@/components/ui/suspended-banner";
 
 export default function CSRAnnouncementsPage() {
   const router = useRouter();
   const supabase = createClient();
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function CSRAnnouncementsPage() {
         return;
       }
 
+      setUser(userData);
       setLoading(false);
     };
 
@@ -49,12 +52,16 @@ export default function CSRAnnouncementsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
-      <h1 className="mb-6 text-2xl font-bold text-black">Announcements</h1>
-      <div className="rounded-lg bg-white p-8 text-center shadow">
-        <p className="text-black">No announcements available</p>
+    <>
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-7xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
+        <h1 className="mb-6 text-2xl font-bold text-black">Announcements</h1>
+        <div className="rounded-lg bg-white p-8 text-center shadow">
+          <p className="text-black">No announcements available</p>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
-
