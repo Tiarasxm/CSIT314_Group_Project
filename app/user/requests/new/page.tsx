@@ -9,15 +9,6 @@ import { useUserData } from "@/lib/hooks/use-user-data";
 import SuspendedBanner from "@/components/ui/suspended-banner";
 import SuspendedModal from "@/components/ui/suspended-modal";
 
-const CATEGORIES = [
-  "Household Support",
-  "Transportation",
-  "Medical Assistance",
-  "Food & Groceries",
-  "Technology Support",
-  "Other",
-];
-
 export default function SubmitRequestPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -27,6 +18,7 @@ export default function SubmitRequestPage() {
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showSuspendedModal, setShowSuspendedModal] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     category: "",
     description: "",
@@ -35,6 +27,22 @@ export default function SubmitRequestPage() {
     additionalNotes: "",
     files: [] as File[],
   });
+
+  // Fetch categories from database
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("name")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
+
+      if (!error && data) {
+        setCategories(data.map((cat) => cat.name));
+      }
+    };
+    fetchCategories();
+  }, [supabase]);
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -252,7 +260,7 @@ export default function SubmitRequestPage() {
                   required
                 >
                   <option value="">Select a category</option>
-                  {CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
                     </option>
