@@ -36,7 +36,7 @@ function ensureSpace(doc: any, yPosRef: { value: number }, requiredSpace: number
 function addSectionHeading(doc: any, text: string, yPosRef: { value: number }, margin: number, primaryColor: number[]) {
   ensureSpace(doc, yPosRef, 12, margin);
   doc.setFontSize(13);
-  doc.setTextColor(...primaryColor);
+  setDocColor(doc, primaryColor);
   doc.text(text, margin, yPosRef.value);
   yPosRef.value += 8;
 }
@@ -54,7 +54,7 @@ function addParagraph(
   if (!text) return;
   const lines = doc.splitTextToSize(text, contentWidth);
   doc.setFontSize(fontSize);
-  doc.setTextColor(...color);
+  setDocColor(doc, color);
   lines.forEach((line: string) => {
     ensureSpace(doc, yPosRef, lineHeight, margin);
     doc.text(line, margin, yPosRef.value);
@@ -72,7 +72,7 @@ async function addImage(
 ) {
   const dataUrl = await fetchImageDataUrl(url);
   if (!dataUrl) return;
-  const formatMatch = dataUrl.match(/^data:image\\/([a-zA-Z]+);/);
+  const formatMatch = dataUrl.match(/^data:image\/([a-zA-Z]+);/);
   if (!formatMatch) return;
   const format = formatMatch[1].toUpperCase() === "JPG" ? "JPEG" : formatMatch[1].toUpperCase();
 
@@ -112,17 +112,17 @@ export async function exportRequestToPDF(request: any) {
 
     // Header
     doc.setFontSize(20);
-    doc.setTextColor(...primaryColor);
+    setDocColor(doc, primaryColor);
     doc.text("Request Details", margin, yPosRef.value);
     yPosRef.value += 10;
 
     doc.setFontSize(12);
-    doc.setTextColor(...grayColor);
+    setDocColor(doc, grayColor);
     doc.text(`Request ID: #${request.id.slice(0, 8)}`, margin, yPosRef.value);
     yPosRef.value += 8;
 
     doc.setFontSize(14);
-    doc.setTextColor(...textColor);
+    setDocColor(doc, textColor);
     doc.text(`Category: ${request.category || "Other"}`, margin, yPosRef.value);
     yPosRef.value += 10;
 
@@ -214,7 +214,7 @@ export async function exportRequestToPDF(request: any) {
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
-      doc.setTextColor(...grayColor);
+      setDocColor(doc, grayColor);
       doc.text(`Page ${i} of ${pageCount}`, margin, doc.internal.pageSize.getHeight() - margin / 2);
       doc.text(
         `Generated on ${new Date().toLocaleString()}`,
