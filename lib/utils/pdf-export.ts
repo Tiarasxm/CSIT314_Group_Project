@@ -245,3 +245,223 @@ export function getUserDisplayName(user: any): string {
   return "Unknown User";
 }
 
+/**
+ * Export multiple requests to a single PDF (for Platform Manager)
+ */
+export async function exportRequestsToPDF(requests: any[]) {
+  if (requests.length === 0) {
+    alert("No requests to export");
+    return;
+  }
+
+  try {
+    const jsPDF = (await import("jspdf")).default;
+    const doc = new jsPDF();
+
+    const margin = 15;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const contentWidth = pageWidth - 2 * margin;
+
+    const primaryColor = [234, 88, 12]; // Orange-600
+    const secondaryColor = [113, 113, 122]; // Zinc-500
+    const textColor = [0, 0, 0];
+
+    // Title page
+    doc.setFontSize(20);
+    setDocColor(doc, primaryColor);
+    doc.text("Service Requests Export", margin, 30);
+
+    doc.setFontSize(12);
+    setDocColor(doc, secondaryColor);
+    doc.text(`Total Requests: ${requests.length}`, margin, 40);
+    doc.text(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, margin, 47);
+
+    // Loop through each request
+    for (let i = 0; i < requests.length; i++) {
+      const request = requests[i];
+
+      // Add a new page for each request
+      doc.addPage();
+
+      let yPos = { value: margin };
+
+      // Request number and title
+      doc.setFontSize(16);
+      setDocColor(doc, primaryColor);
+      doc.text(`Request ${i + 1} of ${requests.length}`, margin, yPos.value);
+      yPos.value += 10;
+
+      doc.setFontSize(14);
+      doc.text(request.title || "Untitled Request", margin, yPos.value);
+      yPos.value += 10;
+
+      // Status badge
+      doc.setFontSize(10);
+      const statusText = (request.status || "unknown").toUpperCase();
+      const statusColor = 
+        request.status === "completed" ? [34, 197, 94] : // green
+        request.status === "accepted" ? [59, 130, 246] : // blue
+        request.status === "pending" ? [234, 179, 8] : // yellow
+        [156, 163, 175]; // gray
+
+      doc.setFillColor(statusColor[0], statusColor[1], statusColor[2]);
+      doc.roundedRect(margin, yPos.value, 30, 7, 2, 2, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(statusText, margin + 2, yPos.value + 5);
+      yPos.value += 15;
+
+      // User Information
+      addSectionHeading(doc, "User Information", yPos, margin, primaryColor);
+      setDocColor(doc, textColor);
+      doc.setFontSize(11);
+      doc.text(`Name: ${request.user?.name || "N/A"}`, margin, yPos.value);
+      yPos.value += 6;
+      doc.text(`Email: ${request.user?.email || "N/A"}`, margin, yPos.value);
+      yPos.value += 10;
+
+      // Request Details
+      addSectionHeading(doc, "Request Details", yPos, margin, primaryColor);
+      setDocColor(doc, textColor);
+      doc.setFontSize(11);
+      doc.text(`Category: ${request.category || "N/A"}`, margin, yPos.value);
+      yPos.value += 6;
+      doc.text(`Submitted: ${new Date(request.created_at).toLocaleDateString()}`, margin, yPos.value);
+      yPos.value += 6;
+
+      if (request.scheduled_at) {
+        doc.text(`Scheduled: ${new Date(request.scheduled_at).toLocaleString()}`, margin, yPos.value);
+        yPos.value += 6;
+      }
+      yPos.value += 4;
+
+      // Description
+      addSectionHeading(doc, "Description", yPos, margin, primaryColor);
+      setDocColor(doc, textColor);
+      doc.setFontSize(11);
+      const descLines = doc.splitTextToSize(request.description || "No description provided", contentWidth);
+      doc.text(descLines, margin, yPos.value);
+      yPos.value += descLines.length * 6 + 5;
+
+      // Additional Notes
+      if (request.additional_notes) {
+        ensureSpace(doc, yPos, 20, margin);
+        addSectionHeading(doc, "Additional Notes", yPos, margin, primaryColor);
+        setDocColor(doc, textColor);
+        doc.setFontSize(11);
+        const notesLines = doc.splitTextToSize(request.additional_notes, contentWidth);
+        doc.text(notesLines, margin, yPos.value);
+        yPos.value += notesLines.length * 6 + 10;
+      }
+
+      // CSR Information (if assigned)
+      if (request.csr) {
+        ensureSpace(doc, yPos, 20, margin);
+        addSectionHeading(doc, "CSR Representative", yPos, margin, primaryColor);
+        setDocColor(doc, textColor);
+        doc.setFontSize(11);
+        doc.text(`Name: ${request.csr.name || "N/A"}`, margin, yPos.value);
+        yPos.value += 6;
+        doc.text(`Email: ${request.csr.email || "N/A"}`, margin, yPos.value);
+        yPos.value += 10;
+      }
+
+      // Volunteer Information (if assigned)
+      if (request.volunteer_name) {
+        ensureSpace(doc, yPos, 20, margin);
+        addSectionHeading(doc, "Volunteer Assigned", yPos, margin, primaryColor);
+        setDocColor(doc, textColor);
+        doc.setFontSize(11);
+        doc.text(`Name: ${request.volunteer_name}`, margin, yPos.value);
+        yPos.value += 6;
+        if (request.volunteer_mobile) {
+          doc.text(`Mobile: +65 ${request.volunteer_mobile}`, margin, yPos.value);
+          yPos.value += 6;
+        }
+        if (request.volunteer_note) {
+          yPos.value += 2;
+          const noteLines = doc.splitTextToSize(request.volunteer_note, contentWidth);
+          doc.text(noteLines, margin, yPos.value);
+          yPos.value += noteLines.length * 6;
+        }
+      }
+
+      // Attachments
+      if (request.attachments && request.attachments.length > 0) {
+        ensureSpace(doc, yPos, 20, margin);
+        addSectionHeading(doc, "Attachments", yPos, margin, primaryColor);
+        setDocColor(doc, textColor);
+        doc.setFontSize(11);
+        doc.text(`Total Files: ${request.attachments.length}`, margin, yPos.value);
+        yPos.value += 6;
+
+        // Display each attachment
+        for (let index = 0; index < request.attachments.length; index++) {
+          const url = request.attachments[index];
+          const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(url);
+          
+          if (isImage) {
+            // Try to embed the image
+            const imageData = await fetchImageDataUrl(url);
+            if (imageData) {
+              ensureSpace(doc, yPos, 80, margin);
+              try {
+                // Add image to PDF
+                const imgWidth = contentWidth;
+                const imgHeight = 60; // Fixed height for consistency
+                doc.addImage(imageData, 'PNG', margin, yPos.value, imgWidth, imgHeight);
+                yPos.value += imgHeight + 3;
+                
+                // Add filename below image
+                doc.setFontSize(9);
+                setDocColor(doc, secondaryColor);
+                const fileName = url.split('/').pop() || `Image ${index + 1}`;
+                const displayName = decodeURIComponent(fileName).substring(0, 60);
+                doc.text(displayName, margin, yPos.value);
+                yPos.value += 8;
+              } catch (error) {
+                // If image embedding fails, show as link
+                doc.setFontSize(10);
+                setDocColor(doc, textColor);
+                const fileName = url.split('/').pop() || `Attachment ${index + 1}`;
+                const displayName = decodeURIComponent(fileName).substring(0, 50);
+                doc.text(`${index + 1}. ${displayName} (Image)`, margin + 5, yPos.value);
+                yPos.value += 6;
+              }
+            } else {
+              // Image failed to load, show as link
+              doc.setFontSize(10);
+              setDocColor(doc, textColor);
+              const fileName = url.split('/').pop() || `Attachment ${index + 1}`;
+              const displayName = decodeURIComponent(fileName).substring(0, 50);
+              doc.text(`${index + 1}. ${displayName} (Image - unavailable)`, margin + 5, yPos.value);
+              yPos.value += 6;
+            }
+          } else {
+            // Non-image file - show as text
+            doc.setFontSize(10);
+            setDocColor(doc, textColor);
+            const fileName = url.split('/').pop() || `Attachment ${index + 1}`;
+            const displayName = decodeURIComponent(fileName).substring(0, 50);
+            doc.text(`${index + 1}. ${displayName}`, margin + 5, yPos.value);
+            yPos.value += 6;
+          }
+        }
+        yPos.value += 5;
+      }
+
+      // Footer with request ID
+      doc.setFontSize(8);
+      setDocColor(doc, secondaryColor);
+      doc.text(`Request ID: ${request.id}`, margin, pageHeight - 10);
+    }
+
+    // Save the PDF
+    const timestamp = new Date().toISOString().split("T")[0];
+    doc.save(`service-requests-export-${timestamp}.pdf`);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    alert("Failed to generate PDF. Please try again.");
+  }
+}
+
