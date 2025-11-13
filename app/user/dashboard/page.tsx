@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useUserData } from "@/lib/hooks/use-user-data";
+import SuspendedBanner from "@/components/ui/suspended-banner";
 
 // Cache for dashboard stats
 let statsCache: {
@@ -115,7 +116,10 @@ export default function UserDashboard() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl p-6">
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-7xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
         {/* Welcome Card and Stats */}
         <div className="mb-8 grid gap-6 md:grid-cols-3">
           {/* Welcome Card */}
