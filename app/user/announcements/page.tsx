@@ -24,8 +24,19 @@ export default function AnnouncementsPage() {
         return;
       }
 
-      // For now, return empty array - announcements table can be added later
-      setAnnouncements([]);
+      // Fetch announcements from database
+      const { data: announcementsData, error } = await supabase
+        .from("announcements")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching announcements:", error);
+        setAnnouncements([]);
+      } else {
+        setAnnouncements(announcementsData || []);
+      }
+
       setLoading(false);
     };
 
