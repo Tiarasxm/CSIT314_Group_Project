@@ -45,15 +45,11 @@ export default function LoginContent() {
         // Wait a moment for session to be established
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Get user role from metadata
-        const { data: userData } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", data.user.id)
-          .single();
-
+        // Get user role from auth metadata (stored during signup/account creation)
+        // This avoids querying the users table which can cause RLS issues
+        const role = data.user.user_metadata?.role || "user";
+        
         // Redirect based on role using window.location for hard redirect
-        const role = userData?.role || data.user.user_metadata?.role || "user";
         const dashboardPath = `/${role === "user" ? "user" : role}/dashboard`;
         window.location.href = dashboardPath;
       }

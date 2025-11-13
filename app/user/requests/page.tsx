@@ -114,6 +114,35 @@ export default function RequestsPage() {
 
         const { data, error } = await query;
 
+        // Fetch CSR details for all requests that have been accepted
+        // Use the safe get_csr_info function to avoid RLS recursion
+        if (data && data.length > 0) {
+          const csrIds = [
+            ...new Set(data.map((r) => r.accepted_by).filter(Boolean)),
+          ];
+
+          if (csrIds.length > 0) {
+            // Fetch CSR info for each unique CSR using the safe function
+            const csrMap = new Map();
+            for (const csrId of csrIds) {
+              const { data: csrResult } = await supabase.rpc("get_csr_info", {
+                csr_id: csrId,
+              });
+
+              if (csrResult && csrResult.length > 0) {
+                csrMap.set(csrId, csrResult[0]);
+              }
+            }
+
+            // Map CSR data to requests
+            data.forEach((request: any) => {
+              if (request.accepted_by) {
+                request.csr = csrMap.get(request.accepted_by);
+              }
+            });
+          }
+        }
+
         if (error) {
           console.error("Error fetching requests:", error);
           setRequests([]);
@@ -446,8 +475,19 @@ export default function RequestsPage() {
                   {/* CSR Rep and Volunteer Info */}
                   {request.accepted_by && (
                     <div className="mb-4 space-y-2">
+                      {/* CSR Representative */}
+                      <div className="rounded-lg bg-zinc-100 p-2">
+                        <div className="text-xs text-zinc-600">
+                          CSR Representative
+                        </div>
+                        <div className="text-sm font-medium text-zinc-900">
+                          {request.csr?.name || "CSR Representative"}
+                        </div>
+                      </div>
+
+                      {/* Volunteer */}
                       {request.volunteer_name && (
-                        <div className="flex items-center gap-3 bg-black/5 rounded-xl p-2">
+                        <div className="flex items-center gap-3 bg-orange-50 rounded-xl p-2">
                           {request.volunteer_image_url ? (
                             <img
                               src={request.volunteer_image_url}
@@ -458,7 +498,9 @@ export default function RequestsPage() {
                             <div className="h-10 w-10 rounded-full bg-zinc-200"></div>
                           )}
                           <div>
-                            <div className="text-xs text-black">Volunteer</div>
+                            <div className="text-xs text-zinc-600">
+                              Volunteer
+                            </div>
                             <div className="text-sm font-medium text-zinc-900">
                               {request.volunteer_name}
                             </div>

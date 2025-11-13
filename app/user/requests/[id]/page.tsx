@@ -49,22 +49,43 @@ export default function RequestDetailPage() {
         return;
       }
 
-      const { data, error } = await supabase
+      // First fetch the request
+      const { data: requestData, error: requestError } = await supabase
         .from("requests")
         .select("*")
         .eq("id", params.id)
         .eq("user_id", user.id)
         .single();
 
-      if (error || !data) {
-        // Only log error if it's not a "not found" error (which is expected after deletion)
-        if (error?.code !== "PGRST116" && error?.message !== "No rows") {
-          console.error("Error fetching request:", error);
-        }
-        // Redirect to requests list if request not found
+      if (requestError) {
+        console.error("Error fetching request:", requestError);
         router.push("/user/requests");
         return;
       }
+
+      // If request has a CSR assigned, fetch CSR details using safe function
+      let csrData = null;
+      if (requestData?.accepted_by) {
+        const { data: csrResult, error: csrError } = await supabase.rpc(
+          "get_csr_info",
+          { csr_id: requestData.accepted_by }
+        );
+
+        if (!csrError && csrResult && csrResult.length > 0) {
+          csrData = csrResult[0];
+        }
+      }
+
+      // Combine the data
+      const data = {
+        ...requestData,
+        csr: csrData,
+      };
+
+      // Debug: Log CSR data to check if it's being fetched
+      console.log("Request data:", data);
+      console.log("CSR data:", csrData);
+      console.log("CSR accepted_by:", requestData.accepted_by);
 
       setRequest(data);
       setFormData({
@@ -203,11 +224,28 @@ export default function RequestDetailPage() {
       }
 
       // Refresh request data
-      const { data: updatedRequest } = await supabase
+      const { data: updatedRequestData } = await supabase
         .from("requests")
         .select("*")
         .eq("id", request.id)
         .single();
+
+      // Fetch CSR details if assigned using safe function
+      let updatedCsrData = null;
+      if (updatedRequestData?.accepted_by) {
+        const { data: csrResult } = await supabase.rpc("get_csr_info", {
+          csr_id: updatedRequestData.accepted_by,
+        });
+
+        if (csrResult && csrResult.length > 0) {
+          updatedCsrData = csrResult[0];
+        }
+      }
+
+      const updatedRequest = {
+        ...updatedRequestData,
+        csr: updatedCsrData,
+      };
 
       if (updatedRequest) {
         setRequest(updatedRequest);
@@ -525,12 +563,32 @@ export default function RequestDetailPage() {
           {/* CSR Rep and Volunteer Info */}
           {request.accepted_by && (
             <div className="mb-6 space-y-4 rounded-lg bg-zinc-50 p-4">
-              <div>
-                <div className="mb-1 text-xs font-medium text-black">
-                  CSR Rep
+              <div className="rounded-lg border border-zinc-200 bg-white p-3">
+                <div className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  CSR Representative
                 </div>
-                <div className="text-sm font-semibold text-zinc-900">
-                  {request.csr_rep_name || "Name"}
+                <div className="text-base font-semibold text-zinc-900">
+                  {request.csr?.name ||
+                    request.csr?.[0]?.name ||
+                    "CSR Representative"}
+                </div>
+                <div className="mt-1 flex items-center gap-1 text-sm text-zinc-600">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
+                  </svg>
+                  {request.csr?.email ||
+                    request.csr?.[0]?.email ||
+                    "Email not available"}
                 </div>
               </div>
               {request.volunteer_name && (
@@ -562,7 +620,7 @@ export default function RequestDetailPage() {
                   {request.volunteer_note && (
                     <div className="pl-2 border-l-2 border-orange-300">
                       <div className="mb-1 text-xs font-medium text-black">
-                        Note from CSR
+                        Note:
                       </div>
                       <p className="text-sm text-black">
                         {request.volunteer_note}
