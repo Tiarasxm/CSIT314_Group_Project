@@ -24,26 +24,34 @@ export default function StaffLoginPage() {
       // Check if Supabase is configured
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      
+
       if (!supabaseUrl || !supabaseKey) {
-        setError("Supabase configuration is missing. Please check your environment variables.");
+        setError(
+          "Supabase configuration is missing. Please check your environment variables."
+        );
         setLoading(false);
         return;
       }
 
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
 
       if (signInError) {
         // Provide more detailed error messages
-        if (signInError.message?.includes('Failed to fetch') || signInError.message?.includes('NetworkError')) {
-          setError("Network error: Unable to connect to Supabase. Please check your internet connection and Supabase URL configuration.");
+        if (
+          signInError.message?.includes("Failed to fetch") ||
+          signInError.message?.includes("NetworkError")
+        ) {
+          setError(
+            "Network error: Unable to connect to Supabase. Please check your internet connection and Supabase URL configuration."
+          );
           console.error("Supabase connection error:", {
             url: supabaseUrl,
             hasKey: !!supabaseKey,
-            error: signInError
+            error: signInError,
           });
         } else {
           throw signInError;
@@ -53,41 +61,23 @@ export default function StaffLoginPage() {
       }
 
       if (data.user) {
-        // Get user role from users table
-        // Use .eq("id", data.user.id) to read own data (allowed by RLS)
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("role, email, name")
-          .eq("id", data.user.id)
-          .single();
-        
+        // Get user role from auth metadata (stored during signup/account creation)
+        // This avoids querying the users table which can cause RLS issues
+        const role = data.user.user_metadata?.role;
+
         // Debug logging
         console.log("Auth user ID:", data.user.id);
-        console.log("User data from DB:", userData);
-        console.log("User error:", userError);
+        console.log("User role from metadata:", role);
 
-        // If user doesn't exist in users table, it's not a staff account
-        if (userError) {
-          // Check if it's a "not found" error or a different error
-          if (userError.code === 'PGRST116' || userError.message?.includes('No rows')) {
-            setError("This account is not authorized for staff access. Staff accounts must be pre-created in the database. Run: supabase/migrations/003_add_admin_accounts.sql");
-          } else {
-            setError(`Database error: ${userError.message}. Check browser console for details.`);
-            console.error("Database error:", userError);
-          }
+        // If no role in metadata, not a valid staff account
+        if (!role) {
+          setError(
+            "This account is not authorized for staff access. Staff accounts must be pre-created in the database."
+          );
           await supabase.auth.signOut();
           setLoading(false);
           return;
         }
-
-        if (!userData) {
-          setError("This account is not authorized for staff access. Staff accounts must be pre-created in the database. Run: supabase/migrations/003_add_admin_accounts.sql");
-          await supabase.auth.signOut();
-          setLoading(false);
-          return;
-        }
-
-        const role = userData.role;
 
         // Only allow staff roles (platform-manager, user-admin, csr-representative)
         if (
@@ -104,7 +94,10 @@ export default function StaffLoginPage() {
             router.push("/csr-representative/dashboard");
           }
         } else {
-          setError("This account is not authorized for staff access. Your role is: " + role);
+          setError(
+            "This account is not authorized for staff access. Your role is: " +
+              role
+          );
           await supabase.auth.signOut();
         }
       }
@@ -218,4 +211,3 @@ export default function StaffLoginPage() {
     </div>
   );
 }
-
