@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useUserData, invalidateUserCache } from "@/lib/hooks/use-user-data";
+import SuspendedBanner from "@/components/ui/suspended-banner";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -49,20 +50,21 @@ export default function ProfilePage() {
 
     setFormData(data);
     setInitialData(data);
-    
+
     // Set profile image URL - check both profile_image_url and handle null/empty strings
-    const imageUrl = user.profile_image_url && user.profile_image_url.trim() !== "" 
-      ? user.profile_image_url 
-      : null;
+    const imageUrl =
+      user.profile_image_url && user.profile_image_url.trim() !== ""
+        ? user.profile_image_url
+        : null;
     setProfileImageUrl(imageUrl);
-    
+
     // Debug logging
     if (imageUrl) {
       console.log("Profile image URL loaded:", imageUrl);
     } else {
       console.log("No profile image URL found in user data");
     }
-    
+
     setLoading(false);
   }, [user, userLoading]);
 
@@ -84,7 +86,9 @@ export default function ProfilePage() {
   }, [formData, initialData]);
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -135,7 +139,9 @@ export default function ProfilePage() {
 
       // Upload new image
       const fileExt = file.name.split(".").pop();
-      const fileName = `${authUser.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const fileName = `${authUser.id}/${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(7)}.${fileExt}`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("profile-images")
@@ -174,7 +180,7 @@ export default function ProfilePage() {
 
       console.log("Profile image URL saved to database:", publicUrl);
       setProfileImageUrl(publicUrl);
-      
+
       // Refetch user data to update cache
       await refetchUser();
 
@@ -222,10 +228,11 @@ export default function ProfilePage() {
       }
 
       // Construct full name from first_name and last_name
-      const fullName = [formData.first_name, formData.last_name]
-        .filter(Boolean)
-        .join(" ")
-        .trim() || null;
+      const fullName =
+        [formData.first_name, formData.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || null;
 
       console.log("Updating profile with:", {
         name: fullName,
@@ -302,275 +309,282 @@ export default function ProfilePage() {
 
   return (
     <>
-        <div className="mx-auto max-w-4xl p-6">
-          <h1 className="mb-6 text-2xl font-bold text-zinc-900">Profile</h1>
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-4xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
+        <h1 className="mb-6 text-2xl font-bold text-zinc-900">Profile</h1>
 
-          <form onSubmit={handleSubmit}>
-            {/* Profile Picture with Edit Icon */}
-            <div className="mb-8 flex justify-center">
-              <div className="relative">
-                {profileImageUrl ? (
-                  <img
-                    src={profileImageUrl}
-                    alt="Profile"
-                    className="h-32 w-32 rounded-full object-cover border-2 border-zinc-200"
-                    onError={(e) => {
-                      console.error("Failed to load profile image:", profileImageUrl);
-                      console.error("Image error:", e);
-                      // Fallback to placeholder on error
-                      setProfileImageUrl(null);
-                    }}
-                    onLoad={() => {
-                      console.log("Profile image loaded successfully:", profileImageUrl);
-                    }}
-                  />
+        <form onSubmit={handleSubmit}>
+          {/* Profile Picture with Edit Icon */}
+          <div className="mb-8 flex justify-center">
+            <div className="relative">
+              {profileImageUrl ? (
+                <img
+                  src={profileImageUrl}
+                  alt="Profile"
+                  className="h-32 w-32 rounded-full object-cover border-2 border-zinc-200"
+                  onError={(e) => {
+                    console.error(
+                      "Failed to load profile image:",
+                      profileImageUrl
+                    );
+                    console.error("Image error:", e);
+                    // Fallback to placeholder on error
+                    setProfileImageUrl(null);
+                  }}
+                  onLoad={() => {
+                    console.log(
+                      "Profile image loaded successfully:",
+                      profileImageUrl
+                    );
+                  }}
+                />
+              ) : (
+                <div className="h-32 w-32 rounded-full bg-zinc-200 flex items-center justify-center text-black text-4xl font-semibold">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                </div>
+              )}
+              <label className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-yellow-400 shadow-md transition-colors hover:bg-yellow-500">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  disabled={uploadingImage}
+                />
+                {uploadingImage ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent"></div>
                 ) : (
-                  <div className="h-32 w-32 rounded-full bg-zinc-200 flex items-center justify-center text-black text-4xl font-semibold">
-                    {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                  </div>
-                )}
-                <label
-                  className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-yellow-400 shadow-md transition-colors hover:bg-yellow-500"
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    disabled={uploadingImage}
-                  />
-                  {uploadingImage ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent"></div>
-                  ) : (
-                    <svg
-                      className="h-4 w-4 text-black"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  )}
-                </label>
-              </div>
-            </div>
-
-            {/* Basic Information */}
-            <div className="mb-8 rounded-lg bg-white p-6 shadow">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-900">
-                Basic Information
-              </h2>
-
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-black">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      name="first_name"
-                      value={formData.first_name}
-                      onChange={handleInputChange}
-                      placeholder="Enter your first name"
-                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-black">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      name="last_name"
-                      value={formData.last_name}
-                      onChange={handleInputChange}
-                      placeholder="Enter your last name"
-                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    disabled
-                    className="w-full rounded-md border border-zinc-300 bg-zinc-100 px-3 py-2 text-black"
-                  />
-                  <p className="mt-1 text-xs text-black">
-                    Email is disabled (account identifier)
-                  </p>
-                </div>
-
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <label className="block text-sm font-medium text-black">
-                      Password
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPasswordFields(!showPasswordFields)}
-                      className="text-sm font-medium text-orange-600 hover:text-orange-700"
-                    >
-                      Change Password
-                    </button>
-                  </div>
-                  {showPasswordFields ? (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <input
-                        type="password"
-                        name="password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        placeholder="Enter new password"
-                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                      />
-                      <input
-                        type="password"
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        placeholder="Confirm new password"
-                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                      />
-                    </div>
-                  ) : (
-                    <input
-                      type="password"
-                      value="********"
-                      disabled
-                      className="w-full rounded-md border border-zinc-300 bg-zinc-100 px-3 py-2 text-black"
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black">
-                    Phone Number
-                  </label>
-                  <div className="flex">
-                    <div className="flex items-center rounded-l-md border border-r-0 border-zinc-300 bg-zinc-50 px-3 text-black">
-                      +65
-                    </div>
-                    <input
-                      type="tel"
-                      name="contact_number"
-                      value={formData.contact_number}
-                      onChange={handleInputChange}
-                      placeholder="Enter your number"
-                      className="w-full rounded-r-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Personal Details */}
-            <div className="mb-8 rounded-lg bg-white p-6 shadow">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-900">
-                Personal Details
-              </h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    name="date_of_birth"
-                    value={formData.date_of_birth}
-                    onChange={handleInputChange}
-                    placeholder="Enter DOB"
-                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black">
-                    Gender
-                  </label>
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleInputChange}
-                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  <svg
+                    className="h-4 w-4 text-black"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <option value="">Select gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
-                  </select>
-                </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                )}
+              </label>
+            </div>
+          </div>
 
+          {/* Basic Information */}
+          <div className="mb-8 rounded-lg bg-white p-6 shadow">
+            <h2 className="mb-4 text-lg font-semibold text-zinc-900">
+              Basic Information
+            </h2>
+
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-black">
-                    Language
+                    First Name
                   </label>
                   <input
                     type="text"
-                    name="language"
-                    value={formData.language}
+                    name="first_name"
+                    value={formData.first_name}
                     onChange={handleInputChange}
-                    placeholder="Enter preferred language"
+                    placeholder="Enter your first name"
                     className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                   />
                 </div>
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-black">
-                    Address
+                    Last Name
                   </label>
-                  <textarea
-                    name="address"
-                    value={formData.address}
+                  <input
+                    type="text"
+                    name="last_name"
+                    value={formData.last_name}
                     onChange={handleInputChange}
-                    rows={3}
-                    placeholder="Enter your address"
-                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black">
-                    Medical Condition
-                  </label>
-                  <textarea
-                    name="medical_condition"
-                    value={formData.medical_condition}
-                    onChange={handleInputChange}
-                    rows={3}
-                    placeholder="Relevant health notes...."
+                    placeholder="Enter your last name"
                     className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Save Button */}
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={!hasChanges || saving}
-                className="rounded-md bg-orange-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving ? "Saving..." : "Save"}
-              </button>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  disabled
+                  className="w-full rounded-md border border-zinc-300 bg-zinc-100 px-3 py-2 text-black"
+                />
+                <p className="mt-1 text-xs text-black">
+                  Email is disabled (account identifier)
+                </p>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="block text-sm font-medium text-black">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordFields(!showPasswordFields)}
+                    className="text-sm font-medium text-orange-600 hover:text-orange-700"
+                  >
+                    Change Password
+                  </button>
+                </div>
+                {showPasswordFields ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="Enter new password"
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    />
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      placeholder="Confirm new password"
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="password"
+                    value="********"
+                    disabled
+                    className="w-full rounded-md border border-zinc-300 bg-zinc-100 px-3 py-2 text-black"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black">
+                  Phone Number
+                </label>
+                <div className="flex">
+                  <div className="flex items-center rounded-l-md border border-r-0 border-zinc-300 bg-zinc-50 px-3 text-black">
+                    +65
+                  </div>
+                  <input
+                    type="tel"
+                    name="contact_number"
+                    value={formData.contact_number}
+                    onChange={handleInputChange}
+                    placeholder="Enter your number"
+                    className="w-full rounded-r-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  />
+                </div>
+              </div>
             </div>
-          </form>
-        </div>
+          </div>
+
+          {/* Personal Details */}
+          <div className="mb-8 rounded-lg bg-white p-6 shadow">
+            <h2 className="mb-4 text-lg font-semibold text-zinc-900">
+              Personal Details
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={handleInputChange}
+                  placeholder="Enter DOB"
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black">
+                  Gender
+                </label>
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                >
+                  <option value="">Select gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black">
+                  Language
+                </label>
+                <input
+                  type="text"
+                  name="language"
+                  value={formData.language}
+                  onChange={handleInputChange}
+                  placeholder="Enter preferred language"
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black">
+                  Address
+                </label>
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  rows={3}
+                  placeholder="Enter your address"
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black">
+                  Medical Condition
+                </label>
+                <textarea
+                  name="medical_condition"
+                  value={formData.medical_condition}
+                  onChange={handleInputChange}
+                  rows={3}
+                  placeholder="Relevant health notes...."
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={!hasChanges || saving}
+              className="rounded-md bg-orange-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </form>
+      </div>
     </>
   );
 }
