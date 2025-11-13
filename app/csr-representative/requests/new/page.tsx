@@ -145,9 +145,13 @@ export default function CSRNewRequestsPage() {
         return;
       }
 
+      const newShortlistValue = !shortlisted;
       const { error } = await supabase
         .from("requests")
-        .update({ shortlisted: !shortlisted })
+        .update({
+          shortlisted: newShortlistValue,
+          shortlisted_by: newShortlistValue ? authUser.id : null,
+        })
         .eq("id", requestId);
 
       if (error) {
@@ -430,7 +434,7 @@ export default function CSRNewRequestsPage() {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2">
-                    {request.shortlisted ? (
+                    {request.shortlisted && request.shortlisted_by === user?.id ? (
                       <>
                         <button
                           onClick={(e) => {
