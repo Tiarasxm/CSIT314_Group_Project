@@ -39,11 +39,21 @@ The platform has 4 user roles based on hierarchy:
 │   ├── user/                # User dashboard
 │   ├── layout.tsx           # Root layout
 │   └── page.tsx             # Home page
+├── components/
+│   └── ui/                  # Reusable UI components
+├── docs/                    # Documentation (40+ guides)
+│   ├── SETUP_DATABASE.md
+│   ├── DEPLOY_TO_VERCEL.md
+│   ├── DEMO_DATA_README.md
+│   └── ... (see docs folder for all guides)
 ├── lib/
+│   ├── hooks/               # Custom React hooks
 │   ├── types/               # TypeScript type definitions
-│   └── utils/               # Utility functions (auth helpers, etc.)
-└── components/
-    └── ui/                  # Reusable UI components
+│   ├── utils/               # Utility functions
+│   └── supabase/            # Supabase client configuration
+├── supabase/
+│   └── migrations/          # Database migrations
+└── scripts/                 # Utility scripts
 ```
 
 ## Getting Started
@@ -71,7 +81,7 @@ npm install
 # Copy the example environment file
 cp .env.example .env.local
 
-# Add your Supabase credentials (see SUPABASE_SETUP.md for details)
+# Add your Supabase credentials (see docs/SUPABASE_SETUP.md for details)
 # Get your keys from: Supabase Dashboard → Settings → API
 ```
 
@@ -98,21 +108,56 @@ npm run dev
 
 ## Key Features
 
-- Role-based access control with 4 distinct user roles
-- Request submission and management system
-- CSR representative workflow for accepting requests
-- User account management (User Admin only)
-- Platform management (Platform Manager only)
+- **Role-based Access Control**: 4 distinct user roles with specific permissions
+- **Request Management**: Submit, track, and manage service requests
+- **CSR Competitive Assignment**: Multiple CSRs can compete to accept and assign volunteers
+- **Request Shortlisting**: CSRs can shortlist requests for later assignment
+- **Account Suspension**: User Admins can suspend/reactivate user accounts
+- **Dynamic Categories**: Platform Managers can add, edit, and remove service categories
+- **Announcements System**: Platform-wide announcements for all users
+- **Analytics & Reports**: Comprehensive reporting with PDF export
+- **Profile Management**: User Admins can edit CSR profiles
+- **PDF Export**: Export requests and analytics reports
 
 ## Development Notes
 
-- **Pre-Set Accounts**: Authority accounts (Platform Manager, User Admin, CSR Representative) are pre-created. See `PRE_SET_ACCOUNTS.md` for credentials.
+- **Pre-Set Accounts**: Authority accounts (Platform Manager, User Admin, CSR Representative) are pre-created. See `docs/PRE_SET_ACCOUNTS.md` for credentials.
+- **Demo Data**: 4 demo users and 100 test requests available. See `docs/DEMO_DATA_README.md` for details.
 - **Normal Users**: Regular users must sign up through `/register`
 - **User Admin**: The only role that can manage user accounts
 - **Platform Manager**: Manages the website/platform, NOT users
 - **CSR Representatives**: Accept requests on behalf of corporate volunteers
-- **Database Setup**: See `SUPABASE_SETUP.md` for complete Supabase configuration
+- **Database Setup**: See `docs/SETUP_DATABASE.md` for complete Supabase configuration
 - **Environment Variables**: Never commit `.env.local` - it contains sensitive Supabase keys
+
+## Documentation
+
+All documentation has been organized in the `docs/` folder. Key guides:
+
+### Setup & Configuration
+- `docs/SETUP_DATABASE.md` - Database setup and migrations
+- `docs/SUPABASE_SETUP.md` - Complete Supabase configuration
+- `docs/ENV_SETUP.md` - Environment variables guide
+- `docs/STORAGE_SETUP.md` - File storage configuration
+
+### Deployment
+- `docs/DEPLOY_TO_VERCEL.md` - Vercel deployment guide
+- `docs/DEPLOYMENT_CHECKLIST.md` - Complete deployment checklist
+- `docs/WHAT_TO_CHANGE.md` - Quick deployment summary
+
+### Features & Setup
+- `docs/DEMO_DATA_README.md` - Demo user accounts and test data
+- `docs/CATEGORIES_SETUP.md` - Dynamic categories configuration
+- `docs/SHORTLIST_COUNT_FEATURE.md` - Request shortlisting feature
+- `docs/CSR_COMPETITIVE_ASSIGNMENT.md` - Competitive assignment system
+- `docs/PLATFORM_MANAGER_SETUP.md` - Platform Manager features
+
+### Troubleshooting
+- `docs/TROUBLESHOOT_STAFF_LOGIN.md` - Staff login issues
+- `docs/TROUBLESHOOT_PROFILE_IMAGE.md` - Profile image issues
+- `docs/CSR_LOGIN_FIX.md` - CSR authentication fixes
+
+See the `docs/` folder for all 40+ documentation files.
 
 ## License
 
