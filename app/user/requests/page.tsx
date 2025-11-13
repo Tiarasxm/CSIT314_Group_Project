@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRequestsCache } from "@/lib/hooks/use-requests-cache";
+import { useUserData } from "@/lib/hooks/use-user-data";
+import SuspendedBanner from "@/components/ui/suspended-banner";
 
 const CATEGORIES = [
   "Household Support",
@@ -19,6 +21,7 @@ export default function RequestsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+  const { user } = useUserData();
   const [requests, setRequests] = useState<any[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,7 +181,10 @@ export default function RequestsPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl p-6">
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-7xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-zinc-900">{getTitle()}</h1>
           <Link
