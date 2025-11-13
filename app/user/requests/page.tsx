@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -17,7 +17,7 @@ const CATEGORIES = [
   "Other",
 ];
 
-export default function RequestsPage() {
+function RequestsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -635,5 +635,19 @@ export default function RequestsPage() {
         )}
       </div>
     </>
+  );
+}
+
+export default function RequestsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-black">Loading...</div>
+        </div>
+      }
+    >
+      <RequestsPageContent />
+    </Suspense>
   );
 }
