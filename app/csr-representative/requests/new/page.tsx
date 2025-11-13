@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AssignVolunteerModal from "@/components/ui/assign-volunteer-modal";
 import { exportRequestToPDF, getUserDisplayName } from "@/lib/utils/pdf-export";
+import SuspendedBanner from "@/components/ui/suspended-banner";
+import SuspendedModal from "@/components/ui/suspended-modal";
 
 const CATEGORIES = [
   "Household Support",
@@ -29,6 +31,7 @@ export default function CSRNewRequestsPage() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>("");
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,7 +66,8 @@ export default function CSRNewRequestsPage() {
   const fetchRequests = async () => {
     const { data, error } = await supabase
       .from("requests")
-      .select(`
+      .select(
+        `
         *,
         users:user_id (
           id,
@@ -73,7 +77,8 @@ export default function CSRNewRequestsPage() {
           email,
           profile_image_url
         )
-      `)
+      `
+      )
       .eq("status", "pending")
       .order("created_at", { ascending: false });
 
@@ -85,6 +90,12 @@ export default function CSRNewRequestsPage() {
   };
 
   const handleAssign = (requestId: string, existingData?: any) => {
+    // Check if CSR is suspended
+    if (user?.is_suspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
+
     setSelectedRequest(requestId);
     setAssignContext(existingData || null);
     setShowAssignModal(true);
@@ -105,7 +116,33 @@ export default function CSRNewRequestsPage() {
 
       if (!authUser) return;
 
-      const { error } = await supabase
+      // First, check if the request is still pending (not already assigned)
+      const { data: currentRequest, error: fetchError } = await supabase
+        .from("requests")
+        .select("id, status, accepted_by")
+        .eq("id", selectedRequest)
+        .single();
+
+      if (fetchError) {
+        console.error("Error fetching request:", fetchError);
+        alert("Failed to verify request status. Please try again.");
+        return;
+      }
+
+      // Check if already assigned by another CSR
+      if (currentRequest.status !== "pending") {
+        setShowAssignModal(false);
+        setSelectedRequest(null);
+        setAssignContext(null);
+        await fetchRequests();
+        alert(
+          "This request has already been accepted by another CSR representative. Please refresh to see available requests."
+        );
+        return;
+      }
+
+      // Use optimistic locking: only update if status is still 'pending'
+      const { data: updateData, error } = await supabase
         .from("requests")
         .update({
           status: "accepted",
@@ -115,7 +152,9 @@ export default function CSRNewRequestsPage() {
           volunteer_note: volunteerData.volunteerNote,
           volunteer_image_url: volunteerData.volunteerImageUrl || null,
         })
-        .eq("id", selectedRequest);
+        .eq("id", selectedRequest)
+        .eq("status", "pending") // Optimistic locking - only update if still pending
+        .select();
 
       if (error) {
         console.error("Error assigning volunteer:", error);
@@ -123,11 +162,23 @@ export default function CSRNewRequestsPage() {
         return;
       }
 
+      // Check if the update actually happened (no rows updated means it was taken)
+      if (!updateData || updateData.length === 0) {
+        setShowAssignModal(false);
+        setSelectedRequest(null);
+        setAssignContext(null);
+        await fetchRequests();
+        alert(
+          "This request was just accepted by another CSR. Please choose a different request."
+        );
+        return;
+      }
+
       setShowAssignModal(false);
       setSelectedRequest(null);
       setAssignContext(null);
       await fetchRequests();
-      alert("Volunteer assigned successfully!");
+      alert("Volunteer assigned successfully! You have accepted this request.");
     } catch (error) {
       console.error("Error:", error);
       alert("An error occurred. Please try again.");
@@ -162,7 +213,9 @@ export default function CSRNewRequestsPage() {
             "Permission denied. Please ensure you have run the database migration: supabase/migrations/012_allow_csr_update_pending_requests.sql"
           );
         } else {
-          alert(`Failed to update shortlist: ${error.message || "Unknown error"}`);
+          alert(
+            `Failed to update shortlist: ${error.message || "Unknown error"}`
+          );
         }
         return;
       }
@@ -266,7 +319,10 @@ export default function CSRNewRequestsPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl p-6">
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-7xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -408,7 +464,9 @@ export default function CSRNewRequestsPage() {
                       <div className="h-12 w-12 rounded-full bg-zinc-200"></div>
                     )}
                     <div>
-                      <div className="font-medium text-zinc-900">{userName}</div>
+                      <div className="font-medium text-zinc-900">
+                        {userName}
+                      </div>
                       <div className="text-xs text-black">
                         {preferredDate.time}
                         {preferredDate.date ? ` · ${preferredDate.date}` : ""}
@@ -434,7 +492,8 @@ export default function CSRNewRequestsPage() {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2">
-                    {request.shortlisted && request.shortlisted_by === user?.id ? (
+                    {request.shortlisted &&
+                    request.shortlisted_by === user?.id ? (
                       <>
                         <button
                           onClick={(e) => {
@@ -562,9 +621,7 @@ export default function CSRNewRequestsPage() {
 
             {/* Category Filter */}
             <div className="mb-6">
-              <div className="mb-3 text-sm font-medium text-black">
-                Type
-              </div>
+              <div className="mb-3 text-sm font-medium text-black">Type</div>
               <div className="grid gap-2">
                 {CATEGORIES.map((category) => (
                   <label
@@ -593,9 +650,7 @@ export default function CSRNewRequestsPage() {
 
             {/* Time Filter */}
             <div className="mb-6">
-              <div className="mb-3 text-sm font-medium text-black">
-                Time
-              </div>
+              <div className="mb-3 text-sm font-medium text-black">Time</div>
               <div className="space-y-2">
                 {["7", "14", "30"].map((days) => (
                   <label
@@ -613,9 +668,7 @@ export default function CSRNewRequestsPage() {
                     In {days} days
                   </label>
                 ))}
-                <label
-                  className="flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm text-black transition hover:bg-zinc-50"
-                >
+                <label className="flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm text-black transition hover:bg-zinc-50">
                   <input
                     type="radio"
                     name="timeRange"
@@ -649,7 +702,11 @@ export default function CSRNewRequestsPage() {
           </div>
         </div>
       )}
+
+      {/* Suspended Modal */}
+      {showSuspendedModal && (
+        <SuspendedModal onClose={() => setShowSuspendedModal(false)} />
+      )}
     </>
   );
 }
-
