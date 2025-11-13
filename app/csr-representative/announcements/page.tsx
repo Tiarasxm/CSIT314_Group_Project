@@ -9,6 +9,7 @@ export default function CSRAnnouncementsPage() {
   const router = useRouter();
   const supabase = createClient();
   const [user, setUser] = useState<any>(null);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,6 +35,20 @@ export default function CSRAnnouncementsPage() {
       }
 
       setUser(userData);
+
+      // Fetch announcements
+      const { data: announcementsData, error } = await supabase
+        .from("announcements")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching announcements:", error);
+        setAnnouncements([]);
+      } else {
+        setAnnouncements(announcementsData || []);
+      }
+
       setLoading(false);
     };
 
@@ -58,9 +73,31 @@ export default function CSRAnnouncementsPage() {
         className={`mx-auto max-w-7xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
       >
         <h1 className="mb-6 text-2xl font-bold text-black">Announcements</h1>
-        <div className="rounded-lg bg-white p-8 text-center shadow">
-          <p className="text-black">No announcements available</p>
-        </div>
+
+        {announcements.length > 0 ? (
+          <div className="space-y-4">
+            {announcements.map((announcement) => (
+              <div
+                key={announcement.id}
+                className="rounded-lg bg-white p-6 shadow"
+              >
+                <h3 className="mb-2 text-lg font-semibold text-zinc-900">
+                  {announcement.title}
+                </h3>
+                <p className="text-zinc-700">{announcement.content}</p>
+                <p className="mt-3 text-xs text-zinc-500">
+                  Posted on{" "}
+                  {new Date(announcement.created_at).toLocaleDateString()} at{" "}
+                  {new Date(announcement.created_at).toLocaleTimeString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg bg-white p-8 text-center shadow">
+            <p className="text-black">No announcements available</p>
+          </div>
+        )}
       </div>
     </>
   );
