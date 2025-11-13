@@ -335,6 +335,49 @@ export default function PlatformManagerDashboard() {
               </svg>
             </div>
           </Link>
+
+          <Link
+            href="/platform-manager/reports"
+            className="group rounded-lg border-2 border-zinc-200 bg-white p-6 shadow transition-all hover:border-orange-500 hover:shadow-lg"
+          >
+            <div className="mb-3 flex items-center gap-3">
+              <svg
+                className="h-6 w-6 text-orange-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+              <h3 className="text-lg font-semibold text-zinc-900">
+                Analytics Reports
+              </h3>
+            </div>
+            <p className="text-sm text-zinc-600">
+              View platform analytics and export comprehensive reports
+            </p>
+            <div className="mt-4 flex items-center text-sm font-medium text-orange-600 group-hover:underline">
+              Go to Reports
+              <svg
+                className="ml-1 h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </div>
+          </Link>
         </div>
       </div>
     </div>

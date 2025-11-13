@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { exportRequestsToPDF } from "@/lib/utils/pdf-export";
 
@@ -10,12 +10,16 @@ interface Request {
   title: string;
   category: string;
   description: string;
+  additional_notes: string | null;
   status: string;
   scheduled_at: string | null;
   created_at: string;
   accepted_by: string | null;
   volunteer_name: string | null;
   volunteer_mobile: string | null;
+  volunteer_note: string | null;
+  volunteer_image_url: string | null;
+  attachments: string[] | null;
   user?: {
     name: string;
     email: string;
@@ -272,8 +276,8 @@ export default function AllRequestsPage() {
                   </tr>
                 ) : (
                   filteredRequests.map((request) => (
-                    <>
-                      <tr key={request.id} className="hover:bg-zinc-50">
+                    <React.Fragment key={request.id}>
+                      <tr className="hover:bg-zinc-50">
                         <td className="p-3">
                           <input
                             type="checkbox"
@@ -318,7 +322,18 @@ export default function AllRequestsPage() {
                       {expandedRequest === request.id && (
                         <tr>
                           <td colSpan={7} className="bg-zinc-50 p-6">
-                            <div className="space-y-4">
+                            <div className="space-y-6">
+                              {/* Request ID */}
+                              <div>
+                                <h4 className="mb-1 text-xs font-medium uppercase text-zinc-500">
+                                  Request ID
+                                </h4>
+                                <p className="text-sm font-mono text-zinc-900">
+                                  #{request.id.slice(0, 8)}
+                                </p>
+                              </div>
+
+                              {/* Description */}
                               <div>
                                 <h4 className="mb-2 font-semibold text-zinc-900">
                                   Description
@@ -327,6 +342,20 @@ export default function AllRequestsPage() {
                                   {request.description}
                                 </p>
                               </div>
+
+                              {/* Additional Notes */}
+                              {request.additional_notes && (
+                                <div>
+                                  <h4 className="mb-2 font-semibold text-zinc-900">
+                                    Additional Notes
+                                  </h4>
+                                  <p className="text-sm text-zinc-700">
+                                    {request.additional_notes}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Scheduled Time */}
                               {request.scheduled_at && (
                                 <div>
                                   <h4 className="mb-2 font-semibold text-zinc-900">
@@ -335,43 +364,152 @@ export default function AllRequestsPage() {
                                   <p className="text-sm text-zinc-700">
                                     {new Date(
                                       request.scheduled_at
-                                    ).toLocaleString()}
+                                    ).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}{" "}
+                                    {new Date(
+                                      request.scheduled_at
+                                    ).toLocaleDateString()}
                                   </p>
                                 </div>
                               )}
-                              {request.volunteer_name && (
-                                <div>
-                                  <h4 className="mb-2 font-semibold text-zinc-900">
-                                    Volunteer
-                                  </h4>
-                                  <p className="text-sm text-zinc-700">
-                                    {request.volunteer_name}
-                                  </p>
-                                  {request.volunteer_mobile && (
-                                    <p className="text-sm text-zinc-700">
-                                      +65 {request.volunteer_mobile}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
+
+                              {/* CSR Representative */}
                               {request.csr && (
-                                <div>
-                                  <h4 className="mb-2 font-semibold text-zinc-900">
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                  <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
                                     CSR Representative
                                   </h4>
-                                  <p className="text-sm text-zinc-700">
+                                  <p className="text-sm font-semibold text-zinc-900">
                                     {request.csr.name}
                                   </p>
-                                  <p className="text-sm text-zinc-700">
+                                  <p className="text-sm text-zinc-600">
                                     {request.csr.email}
                                   </p>
                                 </div>
                               )}
+
+                              {/* Volunteer */}
+                              {request.volunteer_name && (
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                  <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                                    Volunteer Assigned
+                                  </h4>
+                                  <div className="flex items-center gap-4">
+                                    {request.volunteer_image_url ? (
+                                      <img
+                                        src={request.volunteer_image_url}
+                                        alt={request.volunteer_name}
+                                        className="h-16 w-16 rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="h-16 w-16 rounded-full bg-zinc-200"></div>
+                                    )}
+                                    <div>
+                                      <p className="text-sm font-semibold text-zinc-900">
+                                        {request.volunteer_name}
+                                      </p>
+                                      {request.volunteer_mobile && (
+                                        <p className="text-sm text-zinc-600">
+                                          +65 {request.volunteer_mobile}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {request.volunteer_note && (
+                                    <div className="mt-3 border-l-2 border-orange-300 pl-3">
+                                      <p className="text-xs font-medium text-zinc-500">
+                                        Note:
+                                      </p>
+                                      <p className="text-sm text-zinc-700">
+                                        {request.volunteer_note}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Attachments */}
+                              {request.attachments &&
+                                request.attachments.length > 0 && (
+                                  <div>
+                                    <h4 className="mb-3 font-semibold text-zinc-900">
+                                      Attachments ({request.attachments.length})
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {request.attachments.map(
+                                        (url: string, index: number) => {
+                                          const isImage =
+                                            /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(
+                                              url
+                                            );
+                                          return (
+                                            <div key={index}>
+                                              {isImage ? (
+                                                <a
+                                                  href={url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="block"
+                                                >
+                                                  <img
+                                                    src={url}
+                                                    alt={`Attachment ${
+                                                      index + 1
+                                                    }`}
+                                                    className="h-48 w-full rounded-lg border border-zinc-200 object-cover transition-opacity hover:opacity-75"
+                                                  />
+                                                </a>
+                                              ) : (
+                                                <a
+                                                  href={url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3 text-sm text-orange-600 transition-colors hover:bg-orange-50"
+                                                >
+                                                  <svg
+                                                    className="h-5 w-5"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                  >
+                                                    <path
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                      strokeWidth={2}
+                                                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                                                    />
+                                                  </svg>
+                                                  View File
+                                                </a>
+                                              )}
+                                            </div>
+                                          );
+                                        }
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                              {/* Created Date */}
+                              <div className="border-t border-zinc-200 pt-3">
+                                <p className="text-xs text-zinc-500">
+                                  Submitted on{" "}
+                                  {new Date(
+                                    request.created_at
+                                  ).toLocaleDateString()}{" "}
+                                  at{" "}
+                                  {new Date(
+                                    request.created_at
+                                  ).toLocaleTimeString()}
+                                </p>
+                              </div>
                             </div>
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
