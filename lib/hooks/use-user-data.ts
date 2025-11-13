@@ -13,7 +13,20 @@ let userCache: {
   timestamp: 0,
 };
 
+// Global listeners for cache updates
+let cacheUpdateListeners: Set<() => void> = new Set();
+
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Export function to invalidate user cache globally
+export function invalidateUserCache() {
+  userCache = {
+    data: null,
+    timestamp: 0,
+  };
+  // Notify all listeners to refetch
+  cacheUpdateListeners.forEach((listener) => listener());
+}
 
 export function useUserData() {
   const router = useRouter();
@@ -118,6 +131,16 @@ export function useUserData() {
 
   useEffect(() => {
     fetchUser();
+    
+    // Listen for cache invalidations from other components
+    const listener = () => {
+      fetchUser(true);
+    };
+    cacheUpdateListeners.add(listener);
+    
+    return () => {
+      cacheUpdateListeners.delete(listener);
+    };
   }, [fetchUser]);
 
   return { user, loading, refetch: () => fetchUser(true) };

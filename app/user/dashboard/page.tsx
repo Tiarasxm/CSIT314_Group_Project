@@ -95,10 +95,15 @@ export default function UserDashboard() {
     fetchStats();
   }, [supabase, user, userLoading]);
 
-  const userName = useMemo(
-    () => user?.name || user?.first_name || "Friend",
-    [user]
-  );
+  const userName = useMemo(() => {
+    // Prioritize name field, then construct from first_name + last_name, then first_name alone
+    if (user?.name) return user.name;
+    if (user?.first_name && user?.last_name) {
+      return `${user.first_name} ${user.last_name}`.trim();
+    }
+    if (user?.first_name) return user.first_name;
+    return "Friend";
+  }, [user]);
 
   if (userLoading || loading) {
     return (

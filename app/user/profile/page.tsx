@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useUserData } from "@/lib/hooks/use-user-data";
+import { useUserData, invalidateUserCache } from "@/lib/hooks/use-user-data";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -221,10 +221,24 @@ export default function ProfilePage() {
         }
       }
 
+      // Construct full name from first_name and last_name
+      const fullName = [formData.first_name, formData.last_name]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || null;
+
+      console.log("Updating profile with:", {
+        name: fullName,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        user_id: authUser.id,
+      });
+
       // Update user profile
-      const { error } = await supabase
+      const { data: updatedData, error } = await supabase
         .from("users")
         .update({
+          name: fullName,
           first_name: formData.first_name,
           last_name: formData.last_name,
           contact_number: formData.contact_number || null,
@@ -235,7 +249,8 @@ export default function ProfilePage() {
           medical_condition: formData.medical_condition || null,
           profile_image_url: profileImageUrl || null,
         })
-        .eq("id", authUser.id);
+        .eq("id", authUser.id)
+        .select();
 
       if (error) {
         console.error("Error updating profile:", error);
@@ -243,6 +258,8 @@ export default function ProfilePage() {
         setSaving(false);
         return;
       }
+
+      console.log("Profile updated successfully in database:", updatedData);
 
       // Reset password fields
       setFormData((prev) => ({
@@ -258,6 +275,10 @@ export default function ProfilePage() {
         password: "",
         confirmPassword: "",
       });
+
+      // Invalidate cache and refetch user data to update all components
+      invalidateUserCache();
+      await refetchUser();
 
       alert("Profile updated successfully!");
     } catch (error) {
