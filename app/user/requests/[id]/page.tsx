@@ -7,12 +7,16 @@ import Link from "next/link";
 import ConfirmationModal from "@/components/ui/confirmation-modal";
 import SuccessConfirmationModal from "@/components/ui/success-confirmation-modal";
 import { useRequestsCache } from "@/lib/hooks/use-requests-cache";
+import { useUserData } from "@/lib/hooks/use-user-data";
+import SuspendedBanner from "@/components/ui/suspended-banner";
+import SuspendedModal from "@/components/ui/suspended-modal";
 
 export default function RequestDetailPage() {
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
   const { invalidateCache } = useRequestsCache();
+  const { user } = useUserData();
   const [request, setRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -29,6 +33,7 @@ export default function RequestDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
 
   useEffect(() => {
     // Don't fetch if we're in the process of deleting
@@ -301,6 +306,12 @@ export default function RequestDetailPage() {
   };
 
   const handleMarkComplete = async () => {
+    // Check if user is suspended
+    if (user?.is_suspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
+
     if (!request) return;
     if (request.status !== "accepted" && request.status !== "in-progress")
       return;
@@ -389,7 +400,10 @@ export default function RequestDetailPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-4xl p-6">
+      {user?.is_suspended && <SuspendedBanner />}
+      <div
+        className={`mx-auto max-w-4xl p-6 ${user?.is_suspended ? "mt-14" : ""}`}
+      >
         <div className="mb-6 flex items-center justify-between">
           <Link
             href="/user/requests"
@@ -472,7 +486,13 @@ export default function RequestDetailPage() {
               {(request.status === "accepted" ||
                 request.status === "in-progress") && (
                 <button
-                  onClick={() => setShowCompleteModal(true)}
+                  onClick={() => {
+                    if (user?.is_suspended) {
+                      setShowSuspendedModal(true);
+                    } else {
+                      setShowCompleteModal(true);
+                    }
+                  }}
                   disabled={completing}
                   className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
                 >
@@ -873,6 +893,11 @@ export default function RequestDetailPage() {
           onConfirm={handleMarkComplete}
           onCancel={() => setShowCompleteModal(false)}
         />
+      )}
+
+      {/* Suspended Modal */}
+      {showSuspendedModal && (
+        <SuspendedModal onClose={() => setShowSuspendedModal(false)} />
       )}
     </>
   );
