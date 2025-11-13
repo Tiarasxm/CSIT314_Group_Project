@@ -22,6 +22,20 @@ export default function UserDetailPage() {
   });
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showReactivateModal, setShowReactivateModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [formData, setFormData] = useState({
+    first_name: "",
+    last_name: "",
+    contact_number: "",
+    date_of_birth: "",
+    gender: "",
+    language: "",
+    address: "",
+    medical_condition: "",
+    profile_image_url: "",
+  });
 
   const userId = params?.id as string;
 
@@ -64,6 +78,19 @@ export default function UserDetailPage() {
       }
 
       setUser(userData);
+
+      // Initialize form data for editing
+      setFormData({
+        first_name: userData.first_name || "",
+        last_name: userData.last_name || "",
+        contact_number: userData.contact_number || "",
+        date_of_birth: userData.date_of_birth || "",
+        gender: userData.gender || "",
+        language: userData.language || "",
+        address: userData.address || "",
+        medical_condition: userData.medical_condition || "",
+        profile_image_url: userData.profile_image_url || "",
+      });
 
       // Fetch request statistics for regular users
       if (userData.role === "user") {
@@ -241,6 +268,154 @@ export default function UserDetailPage() {
     }
   };
 
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size must be less than 5MB");
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      // Delete old image if exists
+      if (
+        formData.profile_image_url &&
+        formData.profile_image_url.includes("/profile-images/")
+      ) {
+        try {
+          const urlParts = formData.profile_image_url.split("/profile-images/");
+          if (urlParts.length > 1) {
+            const filePath = urlParts[1].split("?")[0];
+            await supabase.storage.from("profile-images").remove([filePath]);
+          }
+        } catch (error) {
+          console.warn("Could not delete old image:", error);
+        }
+      }
+
+      // Upload new image
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${userId}/${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Error uploading image:", uploadError);
+        alert("Failed to upload image. Please try again.");
+        setUploadingImage(false);
+        return;
+      }
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("profile-images").getPublicUrl(fileName);
+
+      setFormData((prev) => ({ ...prev, profile_image_url: publicUrl }));
+      setUploadingImage(false);
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred. Please try again.");
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+
+    try {
+      // Construct full name
+      const fullName =
+        [formData.first_name, formData.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || null;
+
+      // Update user profile
+      const { error } = await supabase
+        .from("users")
+        .update({
+          name: fullName,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          contact_number: formData.contact_number || null,
+          date_of_birth: formData.date_of_birth || null,
+          gender: formData.gender || null,
+          language: formData.language || null,
+          address: formData.address || null,
+          medical_condition: formData.medical_condition || null,
+          profile_image_url: formData.profile_image_url || null,
+        })
+        .eq("id", userId);
+
+      if (error) {
+        console.error("Error updating profile:", error);
+        alert("Failed to update profile. Please try again.");
+        setSaving(false);
+        return;
+      }
+
+      // Refetch user data
+      const { data: updatedUser } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (updatedUser) {
+        setUser(updatedUser);
+      }
+
+      setIsEditing(false);
+      alert("Profile updated successfully!");
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    // Reset form data to current user data
+    setFormData({
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      contact_number: user.contact_number || "",
+      date_of_birth: user.date_of_birth || "",
+      gender: user.gender || "",
+      language: user.language || "",
+      address: user.address || "",
+      medical_condition: user.medical_condition || "",
+      profile_image_url: user.profile_image_url || "",
+    });
+    setIsEditing(false);
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -297,28 +472,99 @@ export default function UserDetailPage() {
             </h2>
 
             <div className="mb-4 flex justify-center">
-              {user.profile_image_url ? (
-                <img
-                  src={user.profile_image_url}
-                  alt={user.name}
-                  className="h-24 w-24 rounded-full object-cover"
-                />
-              ) : (
-                <div className="h-24 w-24 rounded-full bg-zinc-200"></div>
-              )}
+              <div className="relative">
+                {(
+                  isEditing
+                    ? formData.profile_image_url
+                    : user.profile_image_url
+                ) ? (
+                  <img
+                    src={
+                      isEditing
+                        ? formData.profile_image_url
+                        : user.profile_image_url
+                    }
+                    alt={user.name}
+                    className="h-24 w-24 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-24 w-24 rounded-full bg-zinc-200"></div>
+                )}
+                {isEditing && user.role === "csr-representative" && (
+                  <label className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-orange-500 shadow-md transition-colors hover:bg-orange-600">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      disabled={uploadingImage}
+                    />
+                    {uploadingImage ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    ) : (
+                      <svg
+                        className="h-4 w-4 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    )}
+                  </label>
+                )}
+              </div>
             </div>
 
             <div className="space-y-4">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  Name
+              {isEditing && user.role === "csr-representative" ? (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        name="first_name"
+                        value={formData.first_name}
+                        onChange={handleInputChange}
+                        className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        name="last_name"
+                        value={formData.last_name}
+                        onChange={handleInputChange}
+                        className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Name
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-zinc-900">
+                    {user.name ||
+                      `${user.first_name || ""} ${
+                        user.last_name || ""
+                      }`.trim() ||
+                      "N/A"}
+                  </div>
                 </div>
-                <div className="mt-1 text-sm font-medium text-zinc-900">
-                  {user.name ||
-                    `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-                    "N/A"}
-                </div>
-              </div>
+              )}
 
               <div>
                 <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -353,70 +599,162 @@ export default function UserDetailPage() {
                 </div>
               </div>
 
-              {user.contact_number && (
-                <div>
-                  <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Contact Number
+              {isEditing && user.role === "csr-representative" ? (
+                <>
+                  <div>
+                    <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Contact Number
+                    </label>
+                    <input
+                      type="tel"
+                      name="contact_number"
+                      value={formData.contact_number}
+                      onChange={handleInputChange}
+                      placeholder="+65"
+                      className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                    />
                   </div>
-                  <div className="mt-1 text-sm text-zinc-900">
-                    +65 {user.contact_number}
-                  </div>
-                </div>
-              )}
 
-              {user.date_of_birth && (
-                <div>
-                  <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Date of Birth
+                  <div>
+                    <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Date of Birth
+                    </label>
+                    <input
+                      type="date"
+                      name="date_of_birth"
+                      value={formData.date_of_birth}
+                      onChange={handleInputChange}
+                      className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                    />
                   </div>
-                  <div className="mt-1 text-sm text-zinc-900">
-                    {new Date(user.date_of_birth).toLocaleDateString()}
-                  </div>
-                </div>
-              )}
 
-              {user.gender && (
-                <div>
-                  <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Gender
+                  <div>
+                    <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Gender
+                    </label>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleInputChange}
+                      className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                    >
+                      <option value="">Select gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                      <option value="Prefer not to say">
+                        Prefer not to say
+                      </option>
+                    </select>
                   </div>
-                  <div className="mt-1 text-sm text-zinc-900">
-                    {user.gender}
-                  </div>
-                </div>
-              )}
 
-              {user.language && (
-                <div>
-                  <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Language
+                  <div>
+                    <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Language
+                    </label>
+                    <input
+                      type="text"
+                      name="language"
+                      value={formData.language}
+                      onChange={handleInputChange}
+                      className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                    />
                   </div>
-                  <div className="mt-1 text-sm text-zinc-900">
-                    {user.language}
-                  </div>
-                </div>
-              )}
 
-              {user.address && (
-                <div>
-                  <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Address
+                  <div>
+                    <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Address
+                    </label>
+                    <input
+                      type="text"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                    />
                   </div>
-                  <div className="mt-1 text-sm text-zinc-900">
-                    {user.address}
-                  </div>
-                </div>
-              )}
 
-              {user.medical_condition && (
-                <div>
-                  <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Medical Condition
+                  <div>
+                    <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Medical Condition
+                    </label>
+                    <textarea
+                      name="medical_condition"
+                      value={formData.medical_condition}
+                      onChange={handleInputChange}
+                      rows={3}
+                      className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                    />
                   </div>
-                  <div className="mt-1 text-sm text-zinc-900">
-                    {user.medical_condition}
-                  </div>
-                </div>
+                </>
+              ) : (
+                <>
+                  {user.contact_number && (
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Contact Number
+                      </div>
+                      <div className="mt-1 text-sm text-zinc-900">
+                        +65 {user.contact_number}
+                      </div>
+                    </div>
+                  )}
+
+                  {user.date_of_birth && (
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Date of Birth
+                      </div>
+                      <div className="mt-1 text-sm text-zinc-900">
+                        {new Date(user.date_of_birth).toLocaleDateString()}
+                      </div>
+                    </div>
+                  )}
+
+                  {user.gender && (
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Gender
+                      </div>
+                      <div className="mt-1 text-sm text-zinc-900">
+                        {user.gender}
+                      </div>
+                    </div>
+                  )}
+
+                  {user.language && (
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Language
+                      </div>
+                      <div className="mt-1 text-sm text-zinc-900">
+                        {user.language}
+                      </div>
+                    </div>
+                  )}
+
+                  {user.address && (
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Address
+                      </div>
+                      <div className="mt-1 text-sm text-zinc-900">
+                        {user.address}
+                      </div>
+                    </div>
+                  )}
+
+                  {user.medical_condition && (
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Medical Condition
+                      </div>
+                      <div className="mt-1 text-sm text-zinc-900">
+                        {user.medical_condition}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <div>
@@ -431,21 +769,50 @@ export default function UserDetailPage() {
 
             {/* Action Buttons */}
             <div className="mt-6 space-y-2">
-              {user.is_suspended ? (
-                <button
-                  onClick={() => setShowReactivateModal(true)}
-                  className="w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
-                >
-                  Reactivate Account
-                </button>
-              ) : canSuspend ? (
-                <button
-                  onClick={() => setShowSuspendModal(true)}
-                  className="w-full rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-                >
-                  Suspend Account
-                </button>
-              ) : null}
+              {isEditing && user.role === "csr-representative" ? (
+                <>
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                    className="w-full rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={saving}
+                    className="w-full rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  {user.role === "csr-representative" && (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                    >
+                      Edit Profile
+                    </button>
+                  )}
+                  {user.is_suspended ? (
+                    <button
+                      onClick={() => setShowReactivateModal(true)}
+                      className="w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+                    >
+                      Reactivate Account
+                    </button>
+                  ) : canSuspend ? (
+                    <button
+                      onClick={() => setShowSuspendModal(true)}
+                      className="w-full rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+                    >
+                      Suspend Account
+                    </button>
+                  ) : null}
+                </>
+              )}
             </div>
 
             {!canSuspend && (
