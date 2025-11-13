@@ -66,7 +66,7 @@ export default function CSRShortlistPage() {
           profile_image_url
         )
       `)
-      .eq("accepted_by", authUser.id)
+      .eq("shortlisted_by", authUser.id)
       .eq("shortlisted", true)
       .order("created_at", { ascending: false });
 
