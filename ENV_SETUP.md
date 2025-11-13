@@ -69,9 +69,24 @@ After setting up your `.env.local` file, verify it's working:
 - Verify you're using the correct key type (anon vs service_role)
 
 ### "Failed to fetch" error
-- Check that `NEXT_PUBLIC_SUPABASE_URL` is correct
-- Verify your Supabase project is active
-- Check your internet connection
+- **Check environment variables are loaded:**
+  - Ensure `.env.local` exists in the project root
+  - Verify `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set
+  - **Restart your development server** after creating/modifying `.env.local`
+  - Check browser console for the actual Supabase URL being used
+- **Verify Supabase URL:**
+  - Check that `NEXT_PUBLIC_SUPABASE_URL` is correct (format: `https://xxxxx.supabase.co`)
+  - Ensure there are no trailing slashes
+  - Verify your Supabase project is active (not paused)
+- **Network issues:**
+  - Check your internet connection
+  - Try accessing the Supabase URL directly in your browser
+  - Check for CORS errors in browser console
+  - Verify firewall/proxy settings aren't blocking the connection
+- **Common fixes:**
+  - Delete `.next` folder and restart dev server: `rm -rf .next && npm run dev`
+  - Clear browser cache and hard refresh (Cmd+Shift+R / Ctrl+Shift+R)
+  - Check if other Supabase operations work (e.g., regular user login)
 
 ### Environment variables not loading
 - Ensure the file is named exactly `.env.local` (not `.env` or `.env.local.txt`)
