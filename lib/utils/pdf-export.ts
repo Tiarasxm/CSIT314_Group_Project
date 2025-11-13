@@ -21,6 +21,10 @@ async function fetchImageDataUrl(url?: string | null): Promise<string | null> {
   }
 }
 
+function setDocColor(doc: any, color: number[]) {
+  doc.setTextColor(color[0], color[1], color[2]);
+}
+
 function ensureSpace(doc: any, yPosRef: { value: number }, requiredSpace: number, margin: number) {
   const pageHeight = doc.internal.pageSize.getHeight();
   if (yPosRef.value + requiredSpace > pageHeight - margin) {
